@@ -4,7 +4,7 @@ Roguelite tático por turnos, curto e rejogável, inspirado na **Umbanda** e na 
 
 Os Ajogun, as forças da desordem, romperam o caminho entre o Orun e o Aiyê, e Ikú, a Morte, vem buscar a aldeia antes da hora. Você é um filho de santo que carrega o axé do seu orixá e precisa fechar **seis terreiros** até enfrentar Ikú. Uma jornada dura de 10 a 15 minutos.
 
-Jogue em https://geffinh0.github.io/Vigia-gov/
+Jogue em https://geffinh0.github.io/axe/
 
 ## Como jogar
 
