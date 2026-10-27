@@ -22,7 +22,7 @@
         desc: 'Avança até 3 casas em linha reta. A primeira criatura no caminho sofre 1 de dano e é arremessada 2 casas.',
       },
       blurb: 'O ferreiro dos caminhos. Resistente, controla o campo empurrando inimigos contra pedras, rios e uns contra os outros.',
-      unlock: null,
+      requirement: null,
     },
     oxossi: {
       id: 'oxossi',
@@ -42,7 +42,7 @@
         desc: 'Dispara a flecha única de Oxóssi em linha reta (até 7 casas). Causa 2 de dano à primeira criatura atingida.',
       },
       blurb: 'A caçadora de uma flecha só. Abate inimigos à distância antes que eles se aproximem.',
-      unlock: null,
+      requirement: null,
     },
     xango: {
       id: 'xango',
@@ -62,8 +62,8 @@
         range: 3,
         desc: 'Lança uma pedra de raio a até 3 casas: 1 de dano em cruz e o chão arde em fogo por 2 rodadas.',
       },
-      blurb: 'O senhor do trovão. Frágil, mas transforma o terreiro em fogo — e fica de pé no meio dele.',
-      unlock: null,
+      blurb: 'O senhor do trovão. Frágil, mas transforma o terreiro em fogo e fica de pé no meio dele.',
+      requirement: null,
     },
     iansa: {
       id: 'iansa',
@@ -82,8 +82,8 @@
         target: 'none',
         desc: 'Um redemoinho empurra 2 casas todas as criaturas ao seu redor (8 casas vizinhas).',
       },
-      blurb: 'A senhora dos ventos e guia dos eguns. Espalha os inimigos e encadeia raios — exige leitura de campo.',
-      unlock: 'Vença a jornada uma vez para que Iansã responda ao seu chamado.',
+      blurb: 'A senhora dos ventos e guia dos eguns. Espalha os inimigos e encadeia raios. Pede leitura de campo.',
+      requirement: 'Vença a jornada uma vez para que Iansã responda ao seu chamado.',
     },
   };
 
@@ -93,6 +93,7 @@
   const ENEMIES = {
     kiumba: {
       name: 'Kiumba',
+      short: 'Anda até você e golpeia a casa vizinha.',
       kind: 'Espírito obsessor',
       hp: 1,
       ai: 'melee',
@@ -104,6 +105,7 @@
     },
     ofo: {
       name: 'Òfò',
+      short: 'Atira em linha reta e acerta o primeiro no caminho.',
       kind: 'Ajogun da Perda',
       hp: 1,
       ai: 'line',
@@ -111,11 +113,12 @@
       dmg: 1,
       range: 6,
       score: 15,
-      desc: 'Atira em linha reta e acerta a primeira criatura no caminho — inclusive outros Ajogun.',
+      desc: 'Atira em linha reta e acerta a primeira criatura no caminho, inclusive outros Ajogun.',
       tip: 'Saia da linha ou se esconda atrás de árvores e pedras. Melhor ainda: deixe outro inimigo no meio do tiro.',
     },
     zombeteiro: {
       name: 'Zombeteiro',
+      short: 'Salta duas casas e rodopia, acertando as quatro em volta.',
       kind: 'Kiumba saltador',
       hp: 2,
       ai: 'spin',
@@ -127,6 +130,7 @@
     },
     obsessor: {
       name: 'Obsessor',
+      short: 'Anda duas casas por rodada e golpeia assim que chega.',
       kind: 'Kiumba caçador',
       hp: 2,
       ai: 'melee',
@@ -138,6 +142,7 @@
     },
     oran: {
       name: 'Òràn',
+      short: 'Dispara pela faixa marcada e deixa um rastro de brasas.',
       kind: 'Ajogun da Encrenca',
       hp: 3,
       ai: 'charge',
@@ -152,6 +157,7 @@
     },
     arun: {
       name: 'Àrùn',
+      short: 'Parado, faz brotar um Kiumba a cada poucas rodadas.',
       kind: 'Ajogun da Doença',
       hp: 3,
       ai: 'summon',
@@ -159,10 +165,11 @@
       dmg: 0,
       score: 25,
       desc: 'Não se move. A cada poucas rodadas, faz brotar um Kiumba numa casa vizinha marcada.',
-      tip: 'Fique em cima da casa marcada para impedir o nascimento — ou elimine Àrùn cedo.',
+      tip: 'Fique em cima da casa marcada para impedir o nascimento, ou derrube Àrùn cedo.',
     },
     epe: {
       name: 'Èpè',
+      short: 'Joga uma maldição em X onde você estava.',
       kind: 'Ajogun da Maldição',
       hp: 2,
       ai: 'aoe',
@@ -175,6 +182,7 @@
     },
     egba: {
       name: 'Ègbà',
+      short: 'Golpe pesado em três casas, depois fica preso.',
       kind: 'Ajogun da Paralisia',
       hp: 6,
       ai: 'melee',
@@ -186,10 +194,11 @@
       score: 80,
       elite: true,
       desc: 'Gigante que não pode ser empurrado. Seu golpe pesado varre as 3 casas à frente dele (2 de dano) e depois ele fica preso por 2 rodadas.',
-      tip: 'Para escapar do golpe, recue — de lado ainda acerta. Depois que ele golpear, avance e bata enquanto está preso.',
+      tip: 'Para escapar do golpe, recue: de lado ainda acerta. Depois que ele golpear, avance e bata enquanto está preso.',
     },
     iku: {
       name: 'Ikú',
+      short: 'Atravessa o terreiro, lança sentenças e chama kiumbas.',
       kind: 'A Morte',
       hp: 28,
       ai: 'boss',
@@ -319,15 +328,33 @@
     { r: 'D', min: 0 },
   ];
 
+  // Dicas que aparecem uma vez, na hora certa. "touch" é o texto para quem joga no toque.
   const TIPS = {
-    start: 'Objetivo: derrote todas as ondas para fechar o terreiro. Setas/WASD (ou toque nas casas vizinhas) movem; andar contra um inimigo é golpeá-lo.',
-    telegraph: 'Casas marcadas em vermelho serão atacadas na próxima rodada. Saia delas — ou derrote quem vai atacar antes.',
-    ability: 'Sua habilidade está pronta: aperte ESPAÇO ou o botão de habilidade.',
-    wave: 'Marcas no chão indicam onde a próxima onda vai surgir.',
-    friendly: 'Ataques dos inimigos também ferem outros inimigos. Use isso a seu favor!',
-    lowhp: 'Vida baixa. Na encruzilhada você pode escolher um Banho de Ervas para se curar.',
-    wait: 'Às vezes esperar (tecla E ou botão Esperar) é a melhor jogada: deixe que eles venham até você.',
+    start: {
+      key: 'Objetivo: derrote todas as ondas para fechar o terreiro. Setas ou WASD andam; andar contra um inimigo é golpeá-lo.',
+      touch: 'Objetivo: derrote todas as ondas para fechar o terreiro. Toque numa casa vizinha ou deslize o dedo para andar; tocar num inimigo ao lado é golpeá-lo.',
+    },
+    telegraph: {
+      key: 'Casas em vermelho serão atacadas na próxima rodada. Saia delas, ou derrote quem vai atacar antes.',
+      touch: 'Casas em vermelho serão atacadas na próxima rodada. Saia delas, ou derrote quem vai atacar antes. Segure o dedo num inimigo para ver o que ele vai fazer.',
+    },
+    ability: {
+      key: 'Sua habilidade está pronta: aperte Espaço, escolha a direção e aperte de novo.',
+      touch: 'Sua habilidade está pronta: toque no botão verde, depois na casa ou direção, e toque de novo para confirmar.',
+    },
+    wave: { key: 'Marcas roxas no chão mostram onde a próxima onda vai surgir.' },
+    friendly: { key: 'Ataques dos inimigos também ferem outros inimigos. Use isso a seu favor.' },
+    lowhp: { key: 'Vida baixa. Na encruzilhada você pode escolher um banho de ervas para se curar.' },
+    wait: {
+      key: 'Às vezes esperar é a melhor jogada: aperte E e deixe que eles venham até você.',
+      touch: 'Às vezes esperar é a melhor jogada: toque em Esperar e deixe que eles venham até você.',
+    },
+    danger: {
+      key: 'As setas no chão mostram para onde dá para andar. Uma seta vermelha leva para uma casa que será atacada.',
+      touch: 'As setas no chão mostram para onde dá para andar. Uma seta vermelha leva para uma casa que será atacada.',
+    },
   };
+
 
   // Lições mostradas na derrota, de acordo com quem derrotou você.
   const DEATH_LESSONS = {
@@ -335,9 +362,9 @@
     ofo: 'O tiro de Òfò para na primeira coisa que encontra. Coloque obstáculos ou outros inimigos entre vocês.',
     zombeteiro: 'O rodopio do Zombeteiro só acerta em cruz. A diagonal é sempre segura.',
     obsessor: 'O Obsessor anda 2 casas: não fuja dele em campo aberto. Espere atrás de um obstáculo e golpeie quando ele chegar.',
-    oran: 'A investida de Òràn segue a faixa marcada. Saia dela — ou deixe outro inimigo ser atropelado.',
+    oran: 'A investida de Òràn segue a faixa marcada. Saia dela, ou deixe outro inimigo ser atropelado.',
     arun: 'Àrùn não para de chamar kiumbas. Derrube-o cedo ou bloqueie a casa onde eles nascem.',
-    epe: 'A maldição de Èpè cai em X onde você estava. Qualquer passo reto escapa — só não pise no fogo.',
+    epe: 'A maldição de Èpè cai em X onde você estava. Qualquer passo reto escapa. Só não pise no fogo.',
     egba: 'O golpe de Ègbà varre 3 casas: só recuar escapa. Nunca lute com ele de costas para uma parede.',
     iku: 'Depois de cada travessia, Ikú fica atordoada e o próximo golpe dobra. Esquive para o lado e corra para ela.',
     fogo: 'Brasas ferem quem termina a rodada em cima delas. Fique de olho no chão.',

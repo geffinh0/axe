@@ -67,7 +67,6 @@ async function playUntil(page, stopFn, opts) {
   await page.goto(URL);
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await page.addScriptTag({ path: path.join(__dirname, 'bot.js') });
 
   console.log('Título e escolha de herói');
   assert(await page.isHidden('#btn-continue'), 'sem jornada salva, não há botão Continuar');
@@ -99,7 +98,6 @@ async function playUntil(page, stopFn, opts) {
   console.log('Salvar e continuar após recarregar');
   const snap = await page.evaluate(() => JSON.stringify(FF.test.state()));
   await page.reload();
-  await page.addScriptTag({ path: path.join(__dirname, 'bot.js') });
   assert(await page.isVisible('#btn-continue'), 'botão Continuar aparece após recarregar');
   await page.click('#btn-continue');
   const restored = await page.evaluate(() => JSON.stringify(FF.test.state()));
@@ -109,7 +107,6 @@ async function playUntil(page, stopFn, opts) {
   const t0 = await page.evaluate(() => FF.test.state().turn);
   await page.keyboard.press('KeyE');
   await page.reload();
-  await page.addScriptTag({ path: path.join(__dirname, 'bot.js') });
   await page.click('#btn-continue');
   const t1 = await page.evaluate(() => FF.test.state().turn);
   assert(t1 === t0 + 1, 'a rodada interrompida foi mantida (' + t0 + ' -> ' + t1 + ')');
@@ -124,7 +121,6 @@ async function playUntil(page, stopFn, opts) {
   assert(await page.isHidden('#btn-continue'), 'dados de outra versão: descartados com segurança');
   await page.evaluate((g) => localStorage.setItem('axe.save.v1', g), good);
   await page.reload();
-  await page.addScriptTag({ path: path.join(__dirname, 'bot.js') });
   await page.click('#btn-continue');
 
   console.log('Jornada completa com o bot (Ayo, semente axe2)');
@@ -181,20 +177,120 @@ async function playUntil(page, stopFn, opts) {
   await page.click('.hero-opt:nth-child(4)');
   assert(await page.evaluate(() => FF.game.heroSel !== 'iansa'), 'heroína bloqueada não pode ser escolhida');
 
-  console.log('Celular (retrato)');
+  console.log('Página inicial');
+  await page.click('[data-back]:visible');
+  await page.waitForTimeout(3200);
+  const who = await page.textContent('#stage-who');
+  assert(/rodada \d+/.test(who) && !/de ogum|de oxóssi|de xangô|de iansã/.test(who), 'o terreiro ao vivo está jogando (' + who + ')');
+  await page.click('#hero-picker .pick:nth-child(3)');
+  assert((await page.textContent('#hero-card')).includes('Tunde'), 'escolher um caminho troca o cartão do herói');
+  assert(/Desafio do Dia: \S/.test((await page.textContent('#btn-daily')).replace(/ /g, ' ')), 'rótulo do Desafio do Dia com espaço');
+
+  console.log('Celular (retrato): toque, deslizar e segurar');
   const mob = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
   const mp = await mob.newPage();
   mp.on('pageerror', (e) => errors.push(String(e)));
+  mp.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   await mp.goto(URL);
+  await mp.waitForTimeout(600);
   await mp.screenshot({ path: path.join(OUT, '12-celular-titulo.png') });
   await mp.tap('#btn-new');
+  await mp.tap('.advanced summary');
+  await mp.fill('#seed-input', 'toque');
   await mp.tap('#btn-start');
-  await mp.waitForTimeout(2200);
+  await mp.waitForTimeout(1600);
   await mp.screenshot({ path: path.join(OUT, '13-celular-jogo.png') });
+
+  // Ponto da tela no centro de uma casa e casa vizinha livre, calculados pela própria página.
+  const where = (dx, dy) =>
+    mp.evaluate(([dx, dy]) => {
+      const S = FF.test.state();
+      const R = FF.render;
+      const rect = document.querySelector('#board').getBoundingClientRect();
+      const x = S.player.x + dx;
+      const y = S.player.y + dy;
+      return { x: rect.left + (R.ox + x * R.tile + R.tile / 2) / R.dpr, y: rect.top + (R.oy + y * R.tile + R.tile / 2) / R.dpr, tile: R.tile / R.dpr };
+    }, [dx, dy]);
+  const freeDir = () =>
+    mp.evaluate(() => {
+      const S = FF.test.state();
+      const E = FF.engine;
+      const D4 = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+      for (let d = 0; d < 4; d++) {
+        const x = S.player.x + D4[d][0];
+        const y = S.player.y + D4[d][1];
+        if (x < 0 || y < 0 || x > 8 || y > 8) continue;
+        if (S.map[E.idx(x, y)] !== E.FLOOR || S.units.some((u) => u.x === x && u.y === y)) continue;
+        if (S.portals.some((q) => q.x === x && q.y === y)) continue;
+        return { d, dx: D4[d][0], dy: D4[d][1] };
+      }
+      return null;
+    });
+  const gesture = (pts, hold) =>
+    mp.evaluate(
+      async ([pts, hold]) => {
+        const cv = document.querySelector('#board');
+        const fire = (type, p) => cv.dispatchEvent(new PointerEvent(type, { pointerType: 'touch', pointerId: 7, isPrimary: true, clientX: p.x, clientY: p.y, bubbles: true }));
+        fire('pointerdown', pts[0]);
+        for (const p of pts.slice(1)) fire('pointermove', p);
+        await new Promise((r) => setTimeout(r, hold));
+        fire('pointerup', pts[pts.length - 1]);
+      },
+      [pts, hold]
+    );
+  const idle = async () => {
+    for (let i = 0; i < 100 && (await mp.evaluate(() => FF.test.busy())); i++) await mp.waitForTimeout(40);
+  };
+  const pos = () => mp.evaluate(() => ({ x: FF.test.state().player.x, y: FF.test.state().player.y, turn: FF.test.state().turn }));
+
+  let fd = await freeDir();
+  let p0 = await pos();
+  let pt = await where(fd.dx, fd.dy);
+  await gesture([pt], 60);
+  await idle();
+  let p1 = await pos();
+  assert(p1.x === p0.x + fd.dx && p1.y === p0.y + fd.dy && p1.turn === p0.turn + 1, 'tocar numa casa vizinha anda até ela');
+
+  fd = await freeDir();
+  p0 = await pos();
+  const c = await where(0, 0);
+  const len = Math.max(60, c.tile * 0.9);
+  await gesture([c, { x: c.x + fd.dx * len * 0.5, y: c.y + fd.dy * len * 0.5 }, { x: c.x + fd.dx * len, y: c.y + fd.dy * len }], 60);
+  await idle();
+  p1 = await pos();
+  assert(p1.x === p0.x + fd.dx && p1.y === p0.y + fd.dy && p1.turn === p0.turn + 1, 'deslizar o dedo anda na direção do gesto');
+
+  p0 = await pos();
+  pt = await where(0, 0);
+  await gesture([pt], 600);
+  await mp.waitForTimeout(100);
+  p1 = await pos();
+  const sel = await mp.evaluate(() => FF.game.selected);
+  assert(p1.turn === p0.turn && sel && sel.x === p0.x && sel.y === p0.y, 'segurar o dedo mostra a casa sem gastar a rodada');
+  assert((await mp.textContent('#inspect')).trim().length > 0, 'o painel mostra o que há na casa segurada');
+  const tips = await mp.textContent('#feed');
+  assert(!/Espaço|WASD|teclado|mouse/i.test(tips), 'no toque as dicas não falam de teclado nem mouse');
+
+  console.log('Celular deitado');
+  const land = await browser.newContext({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const lp = await land.newPage();
+  lp.on('pageerror', (e) => errors.push(String(e)));
+  await lp.goto(URL);
+  await lp.tap('#btn-new');
+  await lp.tap('#btn-start');
+  await lp.waitForTimeout(1600);
+  await lp.screenshot({ path: path.join(OUT, '14-celular-deitado.png') });
+  const box = await lp.evaluate(() => {
+    const r = document.querySelector('.board-wrap').getBoundingClientRect();
+    const a = document.querySelector('#btn-wait-m').getBoundingClientRect();
+    return { h: r.height, w: r.width, wait: a.height > 0 && a.bottom <= innerHeight };
+  });
+  assert(box.h >= 340 && box.w >= 340, 'deitado, o tabuleiro ocupa a altura da tela (' + Math.round(box.w) + 'x' + Math.round(box.h) + ')');
+  assert(box.wait, 'deitado, o botão Esperar fica à vista');
 
   assert(errors.length === 0, 'nenhum erro no console (' + errors.join(' | ') + ')');
   await browser.close();
-  console.log('\ne2e ok — capturas em', OUT);
+  console.log('\ne2e ok, capturas em', OUT);
 })().catch((e) => {
   console.error(e);
   process.exit(1);

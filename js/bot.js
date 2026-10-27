@@ -1,7 +1,7 @@
 /*
- * Bots de teste. Funciona no Node (via tests/load.js) e no navegador (injetado pelo teste e2e).
- * O bot "tatico" simula cada ação possível numa cópia do estado (o motor é determinístico)
- * e escolhe a de melhor avaliação, olhando duas rodadas à frente.
+ * Jogador automático: anima o palco da página inicial e joga as simulações dos testes.
+ * Simula cada ação possível numa cópia do estado (o motor é determinístico) e escolhe a de
+ * melhor avaliação, olhando uma ou duas rodadas à frente.
  */
 (function (root) {
   'use strict';

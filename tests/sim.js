@@ -6,7 +6,7 @@
  */
 const path = require('path');
 const { loadGame } = require('./load');
-const FF = loadGame([path.join(__dirname, 'bot.js')]);
+const FF = loadGame([path.join(__dirname, '..', 'js', 'bot.js')]);
 const E = FF.engine;
 const D = FF.data;
 

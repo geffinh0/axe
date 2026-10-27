@@ -17,6 +17,7 @@
   const $ = (s) => document.querySelector(s);
   const $$ = (s) => Array.from(document.querySelectorAll(s));
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const lowerFirst = (t) => t.charAt(0).toLowerCase() + t.slice(1);
   const fmt = (n) => Math.round(n).toLocaleString('pt-BR');
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -36,6 +37,8 @@
     soundAt: {},
     lastTime: 0,
     overlay: null,
+    touch: !!(root.matchMedia && root.matchMedia('(pointer: coarse)').matches),
+    press: null,
   };
 
   const icons = {};
@@ -52,8 +55,15 @@
 
   function show(id, push) {
     if (push !== false && G.screen && G.screen !== id) G.stack.push(G.screen);
+    const from = G.screen;
     G.screen = id;
+    if (id !== 'title') {
+      if (from === 'title') front.scroll = root.scrollY;
+      setFrontActive(false);
+    }
     $$('.screen').forEach((s) => s.classList.toggle('active', s.id === 'scr-' + id));
+    // Cada tela começa do topo; a página inicial volta para onde a leitura parou.
+    root.scrollTo({ top: id === 'title' ? front.scroll || 0 : 0, behavior: 'instant' });
     if (id === 'title') renderTitle();
     if (id === 'heroes') renderHeroes();
     if (id === 'journal') renderJournal('records');
@@ -79,7 +89,10 @@
   function applyAudioSettings() {
     const st = settings();
     A.setVolumes(st.muted ? 0 : st.sfx, st.muted ? 0 : st.music);
-    $('#btn-sound').classList.toggle('off', st.muted);
+    const b = $('#btn-sound');
+    b.classList.toggle('off', st.muted);
+    b.setAttribute('aria-label', st.muted ? 'Som desligado' : 'Som ligado');
+    b.querySelector('use').setAttribute('href', st.muted ? '#i-mute' : '#i-sound');
   }
 
   function sfx(name) {
@@ -89,47 +102,204 @@
     A.play(name);
   }
 
-  /* ---------------------------------------------------------------- título */
+  /* ---------------------------------------------------------------- página inicial */
 
   function renderTitle() {
     const sv = SV.get();
-    const em = $('#embers');
-    if (!em.childElementCount) {
-      for (let i = 0; i < 26; i++) {
-        const s = document.createElement('i');
-        s.style.left = Math.random() * 100 + '%';
-        s.style.animationDelay = -Math.random() * 14 + 's';
-        s.style.animationDuration = 9 + Math.random() * 9 + 's';
-        if (i % 3 === 0) s.className = 'violet';
-        em.appendChild(s);
-      }
-    }
-    const spr = $('#title-sprites');
-    spr.innerHTML =
-      img('ogum', '', 'Kayode') + img('oxossi', '', 'Ayo') + img('iku', 'boss', 'Ikú') + img('xango', '', 'Tunde') + (sv.unlocked.iansa ? img('iansa', '', 'Folake') : '');
     const run = sv.run;
     const cont = $('#btn-continue');
+    const nova = $('#btn-new');
     cont.hidden = !run;
-    if (run) {
-      const h = D.HEROES[run.hero];
-      $('#continue-info').textContent = h.name + ' · Terreiro ' + (run.stageIdx + 1) + '/' + D.STAGES.length + (run.mode === 'daily' ? ' · Desafio do Dia' : '');
-    }
+    // Com jornada salva, continuar é a ação principal e começar outra vira um link.
+    nova.className = run ? 'link' : 'btn primary';
+    nova.textContent = run ? 'Começar outra jornada' : 'Jogar';
+    $('#continue-info').textContent = run
+      ? D.HEROES[run.hero].name + ', terreiro ' + (run.stageIdx + 1) + ' de ' + D.STAGES.length + (run.mode === 'daily' ? ', Desafio do Dia' : '')
+      : '';
     const di = SV.dailyInfo();
     const dr = sv.daily[di.key];
     $('#daily-info').textContent =
-      D.HEROES[di.hero].name + ' · ' + D.PROVACOES[di.provas[0]].name + (dr ? ' · melhor ' + fmt(dr.best) + (dr.won ? ' ✓' : '') : '');
+      D.HEROES[di.hero].name + ' com ' + D.PROVACOES[di.provas[0]].name + (dr ? (dr.won ? ', vencido' : ', seu melhor ' + fmt(dr.best)) : '');
     const best = Math.max(0, ...D.HERO_ORDER.map((h) => sv.heroes[h].best));
     $('#best-line').textContent = sv.stats.runs
-      ? 'Melhor jornada: ' + fmt(best) + ' de axé · ' + sv.stats.wins + (sv.stats.wins === 1 ? ' vitória' : ' vitórias') + ' em ' + sv.stats.runs + (sv.stats.runs === 1 ? ' jornada' : ' jornadas')
-      : 'Primeira vez? Escolha Nova jornada — o jogo ensina enquanto você joga.';
-    setTimeout(() => (run ? cont : $('#btn-new')).focus(), 30);
+      ? 'Sua melhor jornada: ' + fmt(best) + ' de axé. ' + sv.stats.wins + (sv.stats.wins === 1 ? ' vitória' : ' vitórias') + ' em ' + sv.stats.runs + (sv.stats.runs === 1 ? ' jornada.' : ' jornadas.')
+      : '';
+    buildFront();
+    pickPath(front.pathHero, true);
+    setFrontActive(true);
+  }
+
+  // Palco ao vivo, escolha de caminho e lista de criaturas.
+  const front = { built: false, active: false, stage: null, paths: null, inView: {}, pathHero: 'ogum', stageKey: '' };
+
+  const STAGE_SCENES = {
+    intro: { hero: 'ogum', stage: 1 },
+    regras: { hero: 'oxossi', stage: 2 },
+    jornada: { hero: 'xango', stage: 4 },
+  };
+
+  function buildFront() {
+    if (front.built) return;
+    front.built = true;
+
+    let h = '';
+    for (const [title, ids] of [
+      ['Kiumbas', ['kiumba', 'zombeteiro', 'obsessor']],
+      ['Ajogun', ['ofo', 'oran', 'arun', 'epe', 'egba', 'iku']],
+    ]) {
+      h += '<div class="cgroup"><p>' + title + '</p>';
+      for (const id of ids) {
+        const e = D.ENEMIES[id];
+        h += '<div class="crow">' + img(id, '', '') + '<p><b>' + esc(e.name) + '</b><span class="what">' + esc(e.short) + '</span></p><span class="val">vida ' + e.hp + '</span></div>';
+      }
+      h += '</div>';
+    }
+    $('#creature-rows').innerHTML = h;
+
+    const picker = $('#hero-picker');
+    for (const id of D.HERO_ORDER) {
+      const hh = D.HEROES[id];
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pick';
+      b.setAttribute('role', 'radio');
+      b.dataset.hero = id;
+      b.innerHTML = img(id, '', '') + '<span>' + esc(hh.name) + '<small>' + esc(hh.title) + '</small></span>';
+      b.addEventListener('click', () => pickPath(id));
+      picker.appendChild(b);
+    }
+    picker.addEventListener('keydown', (e) => {
+      const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+      if (!step) return;
+      e.preventDefault();
+      const i = (D.HERO_ORDER.indexOf(front.pathHero) + step + D.HERO_ORDER.length) % D.HERO_ORDER.length;
+      pickPath(D.HERO_ORDER[i]);
+      picker.querySelector('[data-hero="' + D.HERO_ORDER[i] + '"]').focus();
+    });
+    $('#hero-card').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-play]');
+      if (!b) return;
+      sfx('select');
+      G.heroSel = b.dataset.play;
+      G.provasSel = SV.get().lastProvas.slice();
+      show('heroes');
+    });
+
+    if (FF.createDemo) {
+      front.stage = FF.createDemo($('#stage-board'), {
+        hero: STAGE_SCENES.intro.hero,
+        stage: STAGE_SCENES.intro.stage,
+        onInfo: (i) => {
+          $('#stage-place').textContent = i.place;
+          $('#stage-who').textContent = i.hero.name + ', ' + lowerFirst(i.hero.title) + ', rodada ' + i.turn;
+        },
+      });
+      front.paths = FF.createDemo($('#paths-board'), { hero: front.pathHero, stage: 0 });
+    }
+
+    if ('IntersectionObserver' in root) {
+      // Os demos só jogam quando estão à vista.
+      const seen = new IntersectionObserver((entries) => {
+        for (const en of entries) front.inView[en.target.id] = en.isIntersecting;
+        syncDemos();
+      });
+      seen.observe($('#stage-board'));
+      seen.observe($('#paths-board'));
+      // O palco muda de terreiro conforme a leitura avança.
+      const chapters = new IntersectionObserver(
+        (entries) => {
+          for (const en of entries) if (en.isIntersecting) stageScene(en.target.dataset.scene);
+        },
+        { rootMargin: '-45% 0px -45% 0px' }
+      );
+      $('.intro').dataset.scene = 'intro';
+      $('#regras').dataset.scene = 'regras';
+      $('#jornada').dataset.scene = 'jornada';
+      for (const el of $$('[data-scene]')) chapters.observe(el);
+    } else {
+      front.inView['stage-board'] = front.inView['paths-board'] = true;
+    }
+    setupReveal();
+  }
+
+  function stageScene(key) {
+    const sc = STAGE_SCENES[key];
+    if (!sc || !front.stage || front.stageKey === key) return;
+    front.stageKey = key;
+    const cv = $('#stage-board');
+    const reduce = root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // Troca lenta: o terreiro escurece, muda e volta.
+    cv.classList.add('swap');
+    setTimeout(
+      () => {
+        front.stage.hero = sc.hero;
+        front.stage.setStage(sc.stage);
+        cv.classList.remove('swap');
+      },
+      reduce ? 0 : 700
+    );
+  }
+
+  function syncDemos() {
+    if (!front.stage) return;
+    front.stage.setVisible(front.active && !!front.inView['stage-board']);
+    front.paths.setVisible(front.active && !!front.inView['paths-board']);
+  }
+
+  function setFrontActive(on) {
+    front.active = on;
+    syncDemos();
+  }
+
+  function pickPath(id, quiet) {
+    front.pathHero = id;
+    for (const b of $$('#hero-picker .pick')) b.setAttribute('aria-checked', String(b.dataset.hero === id));
+    const h = D.HEROES[id];
+    const locked = id === 'iansa' && !SV.get().unlocked.iansa;
+    $('#hero-card').innerHTML =
+      '<h3>' + esc(h.name) + ', ' + esc(lowerFirst(h.title)) + '</h3>' +
+      '<p class="sauda">' + esc(h.saudacao) + ' ' + h.hp + ' de vida.</p>' +
+      '<p>' + esc(h.passive) + '</p>' +
+      '<p><b>' + esc(h.ability.name) + '.</b> ' + esc(h.ability.desc) + '</p>' +
+      (locked ? '<p class="sauda">' + esc(h.requirement) + '</p>' : '<button class="btn primary" type="button" data-play="' + id + '">Jogar com ' + esc(h.name) + '</button>');
+    if (front.paths) front.paths.setHero(id);
+    if (!quiet) sfx('select');
+  }
+
+  function setupReveal() {
+    const els = $$('[data-reveal], .crow');
+    if (!('IntersectionObserver' in root)) {
+      els.forEach((el) => el.classList.add('is-in'));
+      return;
+    }
+    // Partes de uma mesma seção chegam em sequência curta, na ordem de leitura.
+    const order = new Map();
+    for (const el of els) {
+      const k = el.parentElement;
+      const n = order.get(k) || 0;
+      order.set(k, n + 1);
+      el.style.transitionDelay = Math.min(n, 3) * 80 + 'ms';
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const en of entries)
+          if (en.isIntersecting) {
+            en.target.classList.add('is-in');
+            io.unobserve(en.target);
+          }
+      },
+      { rootMargin: '0px 0px -10% 0px', threshold: 0.1 }
+    );
+    els.forEach((el) => io.observe(el));
   }
 
   /* ---------------------------------------------------------- escolha de herói */
 
+  const DIFFICULTY = { 1: 'Fácil de começar', 2: 'Pede atenção', 3: 'Difícil' };
+
   function renderHeroes(focusSel) {
     const sv = SV.get();
-    if (!D.HEROES[G.heroSel] || (G.heroSel === 'iansa' && !sv.unlocked.iansa)) G.heroSel = sv.lastHero;
+    if (!D.HEROES[G.heroSel]) G.heroSel = sv.lastHero;
     if (G.heroSel === 'iansa' && !sv.unlocked.iansa) G.heroSel = 'ogum';
     if (!sv.unlocked.provas) G.provasSel = [];
     const grid = $('#hero-grid');
@@ -138,49 +308,51 @@
       const h = D.HEROES[id];
       const locked = id === 'iansa' && !sv.unlocked.iansa;
       const b = document.createElement('button');
-      b.className = 'hero-opt' + (G.heroSel === id ? ' sel' : '') + (locked ? ' locked' : '');
-      b.setAttribute('aria-pressed', G.heroSel === id);
+      b.type = 'button';
+      b.className = 'hero-opt' + (locked ? ' locked' : '');
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', String(G.heroSel === id));
       const rec = sv.heroes[id];
       b.innerHTML =
-        (locked ? '<span class="lock">bloqueada</span>' : '') +
-        img(id, '', h.name) +
-        '<span class="hname">' + (locked ? '???' : esc(h.name)) + '</span>' +
+        img(id, '', '') +
+        '<span class="hname">' + (locked ? 'Bloqueada' : esc(h.name)) + '</span>' +
         '<span class="horixa">' + esc(h.title) + '</span>' +
-        '<span class="stars" title="Dificuldade">' + '◆'.repeat(h.difficulty) + '◇'.repeat(3 - h.difficulty) + '</span>' +
-        '<span class="hbest">' + (rec.best ? 'recorde ' + fmt(rec.best) + (rec.bestRank ? ' (' + rec.bestRank + ')' : '') : rec.runs ? rec.runs + ' jornada(s)' : 'nunca jogado') + '</span>';
+        '<span class="hdiff">' + DIFFICULTY[h.difficulty] + '</span>' +
+        '<span class="hbest">' + (rec.best ? 'Recorde ' + fmt(rec.best) + (rec.bestRank ? ', nota ' + rec.bestRank : '') : rec.runs ? rec.runs + (rec.runs === 1 ? ' jornada' : ' jornadas') : 'Nunca jogado') + '</span>';
       b.addEventListener('click', () => {
         if (locked) {
-          toast(esc(h.unlock));
+          toast(esc(h.requirement));
           sfx('back');
           return;
         }
         G.heroSel = id;
         sfx('select');
-        renderHeroes('#hero-grid .sel');
+        renderHeroes('#hero-grid [aria-checked="true"]');
       });
       grid.appendChild(b);
     }
     if (focusSel) setTimeout(() => $(focusSel)?.focus(), 0);
     const h = D.HEROES[G.heroSel];
     $('#hero-detail').innerHTML =
-      '<div><h3>' + esc(h.name) + ' — ' + esc(h.title) + '</h3><div class="sauda">' + esc(h.saudacao) + '</div><p>' + esc(h.blurb) + '</p><div class="lbl">Vida</div>' + '♥ '.repeat(h.hp) + '</div>' +
-      '<div><div class="lbl">Passiva</div><p>' + esc(h.passive) + '</p></div>' +
-      '<div><div class="lbl">Habilidade · recarga ' + h.ability.cd + '</div><p><b>' + esc(h.ability.name) + ':</b> ' + esc(h.ability.desc) + '</p></div>';
+      '<div><h3>' + esc(h.name) + '</h3><p class="sauda">' + esc(h.title) + '. ' + esc(h.saudacao) + '</p><p>' + esc(h.blurb) + '</p><p>' + h.hp + ' de vida.</p></div>' +
+      '<div><p class="lbl">Passiva</p><p>' + esc(h.passive) + '</p></div>' +
+      '<div><p class="lbl">' + esc(h.ability.name) + ', recarga de ' + h.ability.cd + ' rodadas</p><p>' + esc(h.ability.desc) + '</p></div>';
 
     const pv = $('#provas');
     if (!sv.unlocked.provas) {
-      pv.innerHTML = '<h3>Provações <span class="muted small">Vença a jornada uma vez para liberar desafios que multiplicam o axé.</span></h3>';
+      pv.innerHTML = '<h3>Provações</h3><p class="locked-note">Vença a jornada uma vez para liberar desafios que mudam as regras e multiplicam o axé.</p>';
     } else {
-      const mult = 1 + G.provasSel.reduce((a, p) => a + D.PROVACOES[p].mult, 0);
+      const mult = 1 + G.provasSel.reduce((a, q) => a + D.PROVACOES[q].mult, 0);
       pv.innerHTML = '<h3>Provações <span class="mult">multiplicador ×' + mult.toFixed(2).replace('.', ',') + '</span></h3><div class="prova-list"></div>';
       const list = pv.querySelector('.prova-list');
       for (const id of D.PROVA_ORDER) {
-        const p = D.PROVACOES[id];
+        const q = D.PROVACOES[id];
         const b = document.createElement('button');
+        b.type = 'button';
         const on = G.provasSel.includes(id);
-        b.className = 'prova' + (on ? ' on' : '');
-        b.setAttribute('aria-pressed', on);
-        b.innerHTML = '<b>' + esc(p.name) + ' <span class="pm">+' + Math.round(p.mult * 100) + '%</span></b>' + esc(p.desc);
+        b.className = 'prova';
+        b.setAttribute('aria-pressed', String(on));
+        b.innerHTML = '<b>' + esc(q.name) + ' <span class="pm">+' + Math.round(q.mult * 100) + '%</span></b>' + esc(q.desc);
         b.addEventListener('click', () => {
           G.provasSel = on ? G.provasSel.filter((x) => x !== id) : G.provasSel.concat([id]);
           sfx('select');
@@ -248,10 +420,10 @@
     updateHud();
     setMusicForStage();
     if (def.boss) {
-      banner('Terreiro ' + (S.stageIdx + 1) + ' · ' + D.BIOMES[def.biome].name, 'Ikú, a Morte', 'Ikú: "Vim buscar o que é meu antes da hora."', 2600);
+      banner('Terreiro ' + (S.stageIdx + 1) + ', ' + D.BIOMES[def.biome].name, 'Ikú, a Morte', 'Ikú: “Vim buscar o que é meu antes da hora.”', 2600);
       sfx('boss');
     } else {
-      banner('Terreiro ' + (S.stageIdx + 1) + ' de ' + D.STAGES.length + ' · ' + D.BIOMES[def.biome].name, def.name, first ? D.HEROES[S.hero].saudacao : '', 1800);
+      banner('Terreiro ' + (S.stageIdx + 1) + ' de ' + D.STAGES.length + ', ' + D.BIOMES[def.biome].name, def.name, first ? D.HEROES[S.hero].saudacao : '', 1800);
     }
     discoverUnits();
     if (S.stageIdx === 0) tip('start');
@@ -268,7 +440,7 @@
     sv.seen.enemies[type] = true;
     SV.persist();
     const e = D.ENEMIES[type];
-    say('<b>Nova criatura: ' + esc(e.name) + '</b> — ' + esc(e.kind) + '. ' + esc(e.tip), 'new-enemy', type);
+    say('<b>Nova criatura: ' + esc(e.name) + '.</b> ' + esc(e.kind) + '. ' + esc(e.tip), 'new-enemy', type);
   }
 
   /* ------------------------------------------------------------------- HUD */
@@ -278,30 +450,29 @@
     if (!S) return;
     const p = S.player;
     const def = D.STAGES[S.stageIdx];
-    $('#hud-stage').textContent = 'Terreiro ' + (S.stageIdx + 1) + '/' + D.STAGES.length;
+    $('#hud-stage').textContent = 'Terreiro ' + (S.stageIdx + 1) + ' de ' + D.STAGES.length;
     $('#hud-stage-name').textContent = def.name;
     let waves = '';
     for (let i = 0; i < S.waves.length; i++) {
       const cls = i < S.waveIdx - 1 || (i === S.waveIdx - 1 && S.portals.length === 0 && S.units.length === 0) ? 'done' : i === S.waveIdx - 1 ? 'now' : '';
       waves += '<i class="dot ' + cls + '"></i>';
     }
-    let wtxt = 'Onda ' + Math.min(S.waveIdx, S.waves.length) + '/' + S.waves.length;
-    if (S.portals.length) wtxt = 'Onda chegando!';
-    else if (S.waveIdx < S.waves.length) {
-      wtxt += ' · próxima em ' + Math.max(1, E.waveTimer(S) - S.waveTimer);
-    }
+    let wtxt = 'Última onda';
+    if (S.portals.length) wtxt = 'Onda chegando';
+    else if (S.waveIdx < S.waves.length) wtxt = 'Próxima onda em ' + Math.max(1, E.waveTimer(S) - S.waveTimer);
     if (def.boss) {
       const iku = S.units.find((u) => u.type === 'iku');
       waves = '';
-      wtxt = iku ? 'Ikú ' + iku.hp + '/' + iku.maxHp : '';
+      wtxt = iku ? 'Ikú com ' + iku.hp + ' de ' + iku.maxHp : '';
     }
-    $('#hud-waves').innerHTML = waves + '<span>' + wtxt + '</span>';
+    $('#hud-waves').innerHTML = waves + '<span class="wtxt">' + wtxt + '</span>';
+    $('#hud-waves').setAttribute('aria-label', 'Onda ' + Math.min(S.waveIdx, S.waves.length) + ' de ' + S.waves.length);
     const par = 6 + S.st.enemies * 3;
     $('#hud-turn').textContent = def.boss ? S.turn : S.turn + ' (meta ' + par + ')';
     $('#hud-score').textContent = fmt(S.score);
 
     const h = D.HEROES[S.hero];
-    $('#hud-hero').innerHTML = img(S.hero, '', h.name) + '<div><div class="hn">' + esc(h.name) + '</div><div class="ho">' + esc(h.title) + '</div></div>';
+    $('#hud-hero').innerHTML = img(S.hero, '', '') + '<div><div class="hn">' + esc(h.name) + '</div><div class="ho">' + esc(h.title) + '</div></div>';
     let hearts = '';
     for (let i = 0; i < p.maxHp; i++) hearts += '<img class="px' + (i < p.hp ? '' : ' lost') + '" src="' + icon(i < p.hp ? 'heart' : 'heartEmpty', 3) + '" alt="" />';
     if (p.guia && !p.guiaUsed) hearts += '<img class="px" title="Guia de Proteção ativa" src="' + icon('shield', 3) + '" alt="escudo" />';
@@ -311,10 +482,15 @@
 
     const info = E.abilityInfo(S);
     const ready = info.ready;
+    const how = G.touch
+      ? info.target === 'none'
+        ? 'Toque para usar.'
+        : 'Toque para mirar, depois na direção, e confirme.'
+      : '<kbd>Espaço</kbd> ' + (info.target === 'none' ? 'para usar.' : 'para mirar, de novo para usar.');
     const abHtml =
-      '<span class="an">' + esc(info.name) + ' <span class="acd">' + (G.targeting ? 'mirando' : ready ? 'pronta' : 'recarga ' + info.cd) + '</span></span>' +
+      '<span class="an">' + esc(info.name) + ' <span class="acd">' + (G.targeting ? 'mirando' : ready ? 'pronta' : 'pronta em ' + info.cd) + '</span></span>' +
       '<span class="ad">' + esc(info.desc) + '</span>' +
-      '<span class="ad"><kbd>Espaço</kbd> ' + (info.target === 'none' ? 'usa' : 'mira e confirma') + '</span>';
+      '<span class="ad">' + how + '</span>';
     for (const id of ['#btn-ability', '#btn-ability-m']) {
       const b = $(id);
       b.innerHTML = abHtml;
@@ -370,14 +546,14 @@
         const e = D.ENEMIES[u.type];
         const it = intentText(u);
         html =
-          '<div class="ih">' + img(u.type, '', e.name) + '<div><div class="iname">' + esc(e.name) + '</div><div class="ikind">' + esc(e.kind) + ' · vida ' + u.hp + '/' + u.maxHp + '</div></div></div>' +
+          '<div class="ih">' + img(u.type, '', '') + '<div><div class="iname">' + esc(e.name) + '</div><div class="ikind">' + esc(e.kind) + ', ' + u.hp + ' de ' + u.maxHp + ' de vida</div></div></div>' +
           '<div>' + esc(e.desc) + '</div>' +
           (it ? '<div class="iint">' + esc(it) + '</div>' : '<div class="iint calm">Sem ataque preparado.</div>') +
           (u.stun > 0 ? '<div class="iint calm">' + (u.exposed ? 'Atordoada: o próximo golpe causa dano dobrado.' : 'Tonto: perde a próxima rodada.') + '</div>' : '') +
           (u.burn > 0 ? '<div class="iint calm">Queimando: perde 1 de vida no fim da rodada.</div>' : '');
       } else if (S.player.x === t.x && S.player.y === t.y) {
         const h = D.HEROES[S.hero];
-        html = '<div class="ih">' + img(S.hero, '', h.name) + '<div><div class="iname">' + esc(h.name) + '</div><div class="ikind">' + esc(h.title) + ' · vida ' + S.player.hp + '/' + S.player.maxHp + ' · dano ' + E.strikeDamage(S) + '</div></div></div><div>' + esc(h.passive) + '</div>';
+        html = '<div class="ih">' + img(S.hero, '', '') + '<div><div class="iname">' + esc(h.name) + '</div><div class="ikind">' + S.player.hp + ' de ' + S.player.maxHp + ' de vida, golpe de ' + E.strikeDamage(S) + '</div></div></div><div>' + esc(h.passive) + '</div>';
       } else if (portal) {
         html = '<div class="ih">' + img(portal.type, '', '') + '<div><div class="iname">Chegada</div><div class="ikind">' + esc(D.ENEMIES[portal.type].name) + ' surge aqui no fim da rodada.</div></div></div>';
       } else {
@@ -390,11 +566,13 @@
           [E.WATER]: 'Ninguém atravessa. Criatura empurrada para o rio é levada pela correnteza.',
           [E.THORN]: 'Quem pisa aqui sofre 1 de dano.',
         };
-        html = '<div class="iname">' + names[tt] + '</div><div>' + desc[tt] + '</div>' + (fire ? '<div class="iint">Em chamas por mais ' + fire + ' rodada(s). Quem terminar o turno aqui sofre 1 de dano.</div>' : '');
+        html = '<div class="iname">' + names[tt] + '</div><div>' + desc[tt] + '</div>' + (fire ? '<div class="iint">Em chamas por mais ' + fire + (fire === 1 ? ' rodada' : ' rodadas') + '. Quem terminar o turno aqui sofre 1 de dano.</div>' : '');
         if (S.rainMarks.some((m) => m.x === t.x && m.y === t.y)) html += '<div class="iint">Brasas vão cair aqui no fim da rodada.</div>';
       }
     } else {
-      html = '<div class="muted">Passe o mouse ou toque numa casa para ver o que há nela e o que cada inimigo vai fazer.</div>';
+      html = G.touch
+        ? '<div class="muted">Segure o dedo numa casa para ver o que há nela e o que cada inimigo vai fazer.</div>'
+        : '<div class="muted">Passe o mouse numa casa para ver o que há nela e o que cada inimigo vai fazer.</div>';
     }
     box.innerHTML = html;
   }
@@ -461,16 +639,16 @@
     if (!sv.settings.hints || sv.seen.tips[id]) return;
     sv.seen.tips[id] = true;
     SV.persist();
-    say('<b>Dica:</b> ' + esc(D.TIPS[id]), 'tip');
+    const t = D.TIPS[id];
+    say('<b>Dica.</b> ' + esc(G.touch && t.touch ? t.touch : t.key), 'tip');
   }
 
   /* -------------------------------------------------------------- confirmação */
 
   function ask(text, yesLabel, onYes) {
     const ov = document.createElement('div');
-    ov.className = 'overlay';
-    ov.style.position = 'fixed';
-    ov.innerHTML = '<div class="sheet small-sheet"><p>' + esc(text) + '</p><div class="menu"><button class="btn danger" data-y>' + esc(yesLabel) + '</button><button class="btn" data-n>Cancelar</button></div></div>';
+    ov.className = 'overlay fixed';
+    ov.innerHTML = '<div class="dialog small" role="alertdialog"><p>' + esc(text) + '</p><div class="menu"><button class="btn danger" type="button" data-y>' + esc(yesLabel) + '</button><button class="btn" type="button" data-n>Cancelar</button></div></div>';
     document.body.appendChild(ov);
     const close = () => {
       ov.remove();
@@ -529,6 +707,7 @@
           break;
         case 'hurt':
           sfx('hurt');
+          buzz(45);
           $('#hud-hearts').classList.remove('hit');
           void $('#hud-hearts').offsetWidth;
           $('#hud-hearts').classList.add('hit');
@@ -637,6 +816,7 @@
       const p = S.player;
       if (p.hp <= 2 && p.hp < p.maxHp) tip('lowhp');
       if (p.cd === 0 && S.turn >= 2) tip('ability');
+      if (S.turn >= 1 && moveHints(S).some((h) => h.danger)) tip('danger');
       if (G.queued) {
         const a = G.queued;
         G.queued = null;
@@ -648,7 +828,7 @@
     if (S.phase === 'cross') {
       persistRun();
       const marks = SV.stageMarks(S);
-      for (const m of marks) say('Marca conquistada: <b>' + esc(D.MARKS[m].name) + '</b> — ' + esc(D.MARKS[m].desc), 'mark');
+      for (const m of marks) say('Marca conquistada: <b>' + esc(D.MARKS[m].name) + '.</b> ' + esc(D.MARKS[m].desc), 'mark');
       sfx('clear');
       banner('Terreiro fechado', D.STAGES[S.stageIdx].name, '+' + fmt(S.stageScores[S.stageScores.length - 1].total) + ' de axé', 1500);
       setTimeout(() => G.S === S && openCross(), 1100);
@@ -744,6 +924,25 @@
     return -1;
   }
 
+  // Casas vizinhas: onde dá para andar, onde há um golpe possível e quais passos levam ao perigo.
+  function moveHints(S) {
+    const p = S.player;
+    const danger = new Set(E.threats(S).map((t) => t.x + ',' + t.y));
+    const hints = [];
+    for (let d = 0; d < 4; d++) {
+      const x = p.x + DIRS[d][0];
+      const y = p.y + DIRS[d][1];
+      if (!E.inb(x, y)) continue;
+      if (E.unitAt(S, x, y)) {
+        hints.push({ x, y, dir: d, attack: true });
+      } else if (E.isPassable(S, x, y)) {
+        const burns = S.fire[E.idx(x, y)] > 1 && !p.fireproof && !p.polvora;
+        hints.push({ x, y, dir: d, danger: danger.has(x + ',' + y) || burns || E.tileAt(S, x, y) === E.THORN });
+      }
+    }
+    return hints;
+  }
+
   function uiState() {
     const S = G.S;
     const st = settings();
@@ -761,14 +960,7 @@
       return out;
     }
     if (!st.hints || G.busy) return out;
-    out.hints = [];
-    for (let d = 0; d < 4; d++) {
-      const x = S.player.x + DIRS[d][0];
-      const y = S.player.y + DIRS[d][1];
-      if (!E.inb(x, y)) continue;
-      if (E.unitAt(S, x, y)) out.hints.push({ x, y, attack: true });
-      else if (E.isPassable(S, x, y)) out.hints.push({ x, y });
-    }
+    out.hints = moveHints(S);
     if (G.hover) {
       const d = dirToward(S, G.hover.x, G.hover.y);
       if (d >= 0 && U.manhattan(G.hover.x, G.hover.y, S.player.x, S.player.y) === 1 && E.unitAt(S, G.hover.x, G.hover.y)) {
@@ -847,28 +1039,87 @@
     }
   }
 
-  function boardPointer(e, click) {
+  // Tabuleiro: o mouse passa por cima e clica; no toque, tocar anda, deslizar anda na direção
+  // do gesto e segurar o dedo mostra o que há na casa sem agir.
+  function setTouch(v) {
+    if (G.touch === v) return;
+    G.touch = v;
+    if (G.S) updateHud();
+  }
+
+  function boardHover(e) {
     const S = G.S;
     if (!S || G.screen !== 'game') return;
     const t = R.pick(e.clientX, e.clientY);
-    if (!click) {
-      G.hover = t;
-      R.hover = t;
-      if (G.targeting && t) {
-        if (G.targeting.kind === 'dir') {
-          const d = dirToward(S, t.x, t.y);
-          if (d >= 0 && G.targeting.targets.some((q) => q.dir === d)) G.targeting.sel = d;
-        } else if (G.targeting.targets.some((q) => q.x === t.x && q.y === t.y)) G.targeting.sel = { x: t.x, y: t.y };
-      }
-      updateInspect();
-      return;
+    G.hover = t;
+    R.hover = t;
+    if (G.targeting && t) {
+      if (G.targeting.kind === 'dir') {
+        const d = dirToward(S, t.x, t.y);
+        if (d >= 0 && G.targeting.targets.some((q) => q.dir === d)) G.targeting.sel = d;
+      } else if (G.targeting.targets.some((q) => q.x === t.x && q.y === t.y)) G.targeting.sel = { x: t.x, y: t.y };
     }
+    updateInspect();
+  }
+
+  function boardDown(e) {
+    G.lastPointer = e.pointerType;
+    setTouch(e.pointerType !== 'mouse');
     A.ensure();
     applyAudioSettings();
+    const press = { x: e.clientX, y: e.clientY, long: false };
+    if (e.pointerType !== 'mouse') {
+      press.timer = setTimeout(() => {
+        press.long = true;
+        longPress(press.x, press.y);
+      }, 420);
+    }
+    G.press = press;
+  }
+
+  function boardMove(e) {
+    const p = G.press;
+    if (p && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 12) clearTimeout(p.timer);
+    if (e.pointerType === 'mouse') boardHover(e);
+  }
+
+  function boardUp(e) {
+    const p = G.press;
+    G.press = null;
+    if (!p) return;
+    clearTimeout(p.timer);
+    if (p.long) return;
+    const dx = e.clientX - p.x;
+    const dy = e.clientY - p.y;
+    const tileCss = R.tile / R.dpr;
+    if (Math.hypot(dx, dy) > Math.max(24, tileCss * 0.45)) swipe(dx, dy);
+    else boardTap(e);
+  }
+
+  function swipe(dx, dy) {
+    if (!G.S || G.overlay || G.screen !== 'game') return;
+    const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : dy > 0 ? 2 : 0;
+    if (G.targeting) targetingKey(dir);
+    else tryAction({ k: 'move', dir });
+  }
+
+  function longPress(cx, cy) {
+    const t = R.pick(cx, cy);
+    if (!t || !G.S) return;
+    G.selected = t;
+    R.hover = t;
+    updateInspect();
+    buzz(12);
+  }
+
+  function boardTap(e) {
+    const S = G.S;
+    if (!S || G.screen !== 'game') return;
+    const t = R.pick(e.clientX, e.clientY);
     if (!t || G.overlay) return;
     if (G.targeting) {
       // No toque não há "passar por cima": o primeiro toque mostra a prévia, o segundo confirma.
-      const touch = (e.pointerType || G.lastPointer) === 'touch';
+      const touch = (e.pointerType || G.lastPointer) !== 'mouse';
       if (G.targeting.kind === 'dir') {
         const d = dirToward(S, t.x, t.y);
         if (d >= 0 && G.targeting.targets.some((q) => q.dir === d)) {
@@ -894,7 +1145,17 @@
       return;
     }
     G.selected = t;
+    if (e.pointerType !== 'mouse') R.hover = t;
     updateInspect();
+  }
+
+  function buzz(ms) {
+    if (!G.touch || !settings().shake || !navigator.vibrate) return;
+    try {
+      navigator.vibrate(ms);
+    } catch (err) {
+      /* vibração é só um enfeite */
+    }
   }
 
   function toggleMute() {
@@ -913,7 +1174,7 @@
   }
 
   function scoreRows(parts) {
-    const names = { clear: 'Terreiro fechado', kills: 'Inimigos derrotados', speed: 'Rapidez', flawless: 'Corpo fechado (sem dano)', tricks: 'Truques (fogo amigo, rio, batidas)' };
+    const names = { clear: 'Terreiro fechado', kills: 'Inimigos derrotados', speed: 'Rapidez', flawless: 'Corpo fechado, sem dano', tricks: 'Fogo amigo, rio e batidas' };
     let h = '';
     for (const k of Object.keys(names)) if (parts[k]) h += '<div class="row"><span>' + names[k] + '</span><span class="v">+' + fmt(parts[k]) + '</span></div>';
     return h;
@@ -924,7 +1185,7 @@
     G.overlay = 'cross';
     const sc = S.stageScores[S.stageScores.length - 1];
     $('#stage-result').innerHTML = sc
-      ? '<h3>Terreiro ' + sc.stage + ' · ' + esc(D.STAGES[sc.stage - 1].name) + '</h3>' + scoreRows(sc.parts) + '<div class="row total"><span>Total do terreiro</span><span class="v">+' + fmt(sc.total) + '</span></div><div class="row"><span>Axé acumulado</span><span class="v">' + fmt(S.score) + '</span></div><div class="row"><span>Rodadas (meta ' + sc.par + ')</span><span class="v">' + sc.turns + '</span></div><div class="row"><span>Vida</span><span class="v">' + S.player.hp + '/' + S.player.maxHp + '</span></div>'
+      ? '<h3>Terreiro ' + sc.stage + ', ' + esc(D.STAGES[sc.stage - 1].name) + '</h3>' + scoreRows(sc.parts) + '<div class="row total"><span>Total do terreiro</span><span class="v">+' + fmt(sc.total) + '</span></div><div class="row"><span>Axé acumulado</span><span class="v">' + fmt(S.score) + '</span></div><div class="row"><span>Rodadas, meta de ' + sc.par + '</span><span class="v">' + sc.turns + '</span></div><div class="row"><span>Vida</span><span class="v">' + S.player.hp + ' de ' + S.player.maxHp + '</span></div>'
       : '';
     const box = $('#boon-choices');
     box.innerHTML = '';
@@ -932,7 +1193,8 @@
     opts.forEach((id, i) => {
       const b = document.createElement('button');
       const rest = id === 'rest';
-      const def = rest ? { name: 'Banho de Ervas', icon: 'rest', desc: 'Cura 2 de vida (' + S.player.hp + '/' + S.player.maxHp + ' agora).' } : D.BOONS[id];
+      const def = rest ? { name: 'Banho de Ervas', icon: 'rest', desc: 'Cura 2 de vida. Agora você tem ' + S.player.hp + ' de ' + S.player.maxHp + '.' } : D.BOONS[id];
+      b.type = 'button';
       b.className = 'boon-card' + (rest ? ' rest' : '');
       b.innerHTML = '<img class="px" src="' + icon(def.icon, 4) + '" alt="" /><div><b>' + esc(def.name) + '</b><div class="bdesc">' + esc(def.desc) + '</div></div><kbd class="bkey">' + (i + 1) + '</kbd>';
       b.addEventListener('click', () => chooseBoon(id));
@@ -993,50 +1255,51 @@
     for (const sc of S.stageScores) for (const k in parts) parts[k] += sc.parts[k];
     let head;
     if (won) {
-      head = img(S.hero, '', h.name) + '<div><h2>Ikú recua para o Orun</h2><div class="muted">' + esc(EPILOGUE[S.hero]) + ' A aldeia amanhece em paz.</div></div>';
+      head = img(S.hero, '', '') + '<div><h2>Ikú recua para o Orun</h2><p>' + esc(EPILOGUE[S.hero]) + ' A aldeia amanhece em paz.</p></div>';
     } else {
       const title = cause === 'iku' ? 'Ikú levou você' : cause === 'desistencia' ? 'Jornada interrompida' : 'Os Ajogun venceram desta vez';
-      head = (enemy ? img(cause, '', enemy.name) : img('skull', '', '')) + '<div><h2>' + title + '</h2><div class="muted">' + esc(h.name) + ' caiu no terreiro ' + (S.stageIdx + 1) + ' — ' + esc(D.STAGES[S.stageIdx].name) + (enemy ? ', derrotado por ' + esc(enemy.name) : '') + '.</div></div>';
+      head = (enemy ? img(cause, '', '') : img('skull', '', '')) + '<div><h2>' + title + '</h2><p>' + esc(h.name) + ' caiu no terreiro ' + (S.stageIdx + 1) + ', ' + esc(D.STAGES[S.stageIdx].name) + (enemy ? ', derrotado por ' + esc(enemy.name) : '') + '.</p></div>';
     }
     const lesson = won ? '' : cause === 'desistencia' ? 'Toda jornada ensina. Experimente outro filho de santo ou outras dádivas.' : D.DEATH_LESSONS[cause] || D.DEATH_LESSONS.default;
     let flags = '';
-    if (rec.newBest) flags += '<span class="flag">Novo recorde de ' + esc(h.name) + '!</span>';
-    if (rec.newDaily) flags += '<span class="flag">Melhor resultado do Desafio do Dia!</span>';
-    if (S.mode === 'custom') flags += '<span class="flag purple">Semente escolhida: não conta para recordes</span>';
-    for (const u of rec.unlocks) flags += '<span class="flag purple">' + (u === 'iansa' ? 'Iansã respondeu ao seu chamado: Folake liberada!' : 'Provações liberadas na escolha de caminho!') + '</span>';
-    for (const m of rec.marks) flags += '<span class="flag">Marca: ' + esc(D.MARKS[m].name) + '</span>';
+    if (rec.newBest) flags += '<span class="flag">Novo recorde de ' + esc(h.name) + '</span>';
+    if (rec.newDaily) flags += '<span class="flag">Seu melhor no Desafio do Dia</span>';
+    if (S.mode === 'custom') flags += '<span class="flag">Semente escolhida, não conta para recordes</span>';
+    for (const u of rec.unlocks) flags += '<span class="flag">' + (u === 'iansa' ? 'Iansã respondeu ao seu chamado: Folake está liberada' : 'Provações liberadas na escolha de caminho') + '</span>';
+    for (const m of rec.marks) flags += '<span class="flag">Marca conquistada: ' + esc(D.MARKS[m].name) + '</span>';
     const boons = S.boons.length ? S.boons.map((b) => esc(D.BOONS[b].name)).join(', ') : 'nenhuma';
     // Um motivo concreto para a próxima jornada.
     const sv = SV.get();
     const goals = [];
     const best = sv.heroes[S.hero].best;
-    if (!rec.newBest && best > f.total && S.mode !== 'custom') goals.push('Faltaram <b>' + fmt(best - f.total) + '</b> de axé para o seu recorde com ' + esc(h.name) + ' (' + fmt(best) + ').');
+    if (!rec.newBest && best > f.total && S.mode !== 'custom') goals.push('Faltaram <b>' + fmt(best - f.total) + '</b> de axé para o seu recorde com ' + esc(h.name) + ', que é de ' + fmt(best) + '.');
     const order = ['primeiro', 'iku', 'corpofechado', 'discordia', 'correnteza', 'ligeiro', 'porumfio', 'provado', 'lenda', 'todos', 'diario'];
     const next = order.find((m) => !sv.marks[m]);
-    if (next) goals.push('Próxima marca: <b>' + esc(D.MARKS[next].name) + '</b> — ' + esc(D.MARKS[next].desc));
+    if (next) goals.push('Próxima marca, <b>' + esc(D.MARKS[next].name) + '</b>: ' + esc(lowerFirst(D.MARKS[next].desc)));
     if (!sv.unlocked.iansa) goals.push('Vença uma vez para liberar <b>Folake, filha de Iansã</b>, e as provações.');
-    const lockedHeroes = D.HERO_ORDER.filter((id) => sv.heroes[id].wins === 0 && (id !== 'iansa' || sv.unlocked.iansa));
-    if (won && lockedHeroes.length) goals.push('Ainda sem vitória com: ' + lockedHeroes.map((id) => esc(D.HEROES[id].name)).join(', ') + '.');
+    const noWin = D.HERO_ORDER.filter((id) => sv.heroes[id].wins === 0 && (id !== 'iansa' || sv.unlocked.iansa));
+    if (won && noWin.length) goals.push('Ainda sem vitória com ' + noWin.map((id) => esc(D.HEROES[id].name)).join(', ') + '.');
     const st = S.st || {};
+    const row = (k, v) => '<div class="row"><span>' + k + '</span><span class="v">' + v + '</span></div>';
     $('#end-sheet').innerHTML =
-      '<div class="end-head">' + head + '<div class="rank" title="Nota">' + f.rank + '</div></div>' +
-      (lesson ? '<div class="lesson"><b>Lição:</b> ' + esc(lesson) + '</div>' : '') +
-      (flags ? '<div>' + flags + '</div>' : '') +
-      (goals.length ? '<div class="goals">' + goals.map((g) => '<div>➜ ' + g + '</div>').join('') + '</div>' : '') +
+      '<div class="end-head">' + head + '<div class="rank" aria-label="Nota ' + f.rank + '">' + f.rank + '</div></div>' +
+      (lesson ? '<p class="lesson"><b>Lição.</b> ' + esc(lesson) + '</p>' : '') +
+      (flags ? '<div class="flags">' + flags + '</div>' : '') +
+      (goals.length ? '<div class="goals">' + goals.map((g) => '<p>' + g + '</p>').join('') + '</div>' : '') +
       '<div class="end-grid"><div class="box"><h3>Axé</h3>' + scoreRows(parts) +
-      (f.victory ? '<div class="row"><span>Vitória sobre Ikú</span><span class="v">+' + fmt(f.victory) + '</span></div>' : '') +
-      (f.life ? '<div class="row"><span>Vida restante</span><span class="v">+' + fmt(f.life) + '</span></div>' : '') +
-      (f.mult > 1 ? '<div class="row"><span>Provações</span><span class="v">×' + f.mult.toFixed(2).replace('.', ',') + '</span></div>' : '') +
+      (f.victory ? row('Vitória sobre Ikú', '+' + fmt(f.victory)) : '') +
+      (f.life ? row('Vida restante', '+' + fmt(f.life)) : '') +
+      (f.mult > 1 ? row('Provações', '×' + f.mult.toFixed(2).replace('.', ',')) : '') +
       '<div class="row total"><span>Total</span><span class="v">' + fmt(f.total) + '</span></div></div>' +
       '<div class="box"><h3>Jornada</h3>' +
-      '<div class="row"><span>Terreiros fechados</span><span class="v">' + S.stageScores.length + '/' + D.STAGES.length + '</span></div>' +
-      '<div class="row"><span>Rodadas</span><span class="v">' + S.tot.turns + '</span></div>' +
-      '<div class="row"><span>Inimigos derrotados</span><span class="v">' + (S.tot.kills + S.tot.ff + S.tot.env + (won ? 0 : (st.kills || 0) + (st.ff || 0) + (st.env || 0))) + '</span></div>' +
-      '<div class="row"><span>Dano sofrido</span><span class="v">' + (S.tot.dmg + (won ? 0 : st.dmg || 0)) + '</span></div>' +
-      '<div class="row"><span>Dádivas</span><span class="v" style="text-align:right">' + boons + '</span></div>' +
-      (S.provas.length ? '<div class="row"><span>Provações</span><span class="v" style="text-align:right">' + S.provas.map((p) => esc(D.PROVACOES[p].name)).join(', ') + '</span></div>' : '') +
+      row('Terreiros fechados', S.stageScores.length + ' de ' + D.STAGES.length) +
+      row('Rodadas', S.tot.turns) +
+      row('Inimigos derrotados', S.tot.kills + S.tot.ff + S.tot.env + (won ? 0 : (st.kills || 0) + (st.ff || 0) + (st.env || 0))) +
+      row('Dano sofrido', S.tot.dmg + (won ? 0 : st.dmg || 0)) +
+      row('Dádivas', boons) +
+      (S.provas.length ? row('Provações', S.provas.map((q) => esc(D.PROVACOES[q].name)).join(', ')) : '') +
       '</div></div>' +
-      '<div class="end-actions"><button class="btn primary" data-again>' + (won ? 'Jogar de novo' : 'Tentar de novo') + ' <small>' + esc(h.name) + (S.mode === 'daily' ? ' · mesmo desafio' : ' · novo caminho') + '</small></button><button class="btn" data-heroes>Trocar de herói</button><button class="btn ghost" data-menu>Início</button></div>';
+      '<div class="end-actions"><button class="btn primary" type="button" data-again>' + (won ? 'Jogar de novo' : 'Tentar de novo') + ' <small>' + esc(h.name) + (S.mode === 'daily' ? ', mesmo desafio' : ', caminho novo') + '</small></button><button class="btn" type="button" data-heroes>Trocar de herói</button><button class="link" type="button" data-menu>Voltar ao início</button></div>';
     $('#ov-end').hidden = false;
     const again = $('#end-sheet [data-again]');
     again.addEventListener('click', () => {
@@ -1070,26 +1333,35 @@
         const r = sv.heroes[id];
         const hero = D.HEROES[id];
         const locked = id === 'iansa' && !sv.unlocked.iansa;
-        h += '<div class="rec">' + img(id, locked ? 'locked' : '', hero.name) + '<div><b>' + (locked ? '???' : esc(hero.name)) + '</b></div><div class="muted small">' + esc(hero.title) + '</div><div class="big">' + (r.best ? fmt(r.best) : '—') + '</div><div class="small">nota ' + (r.bestRank || '—') + ' · ' + r.wins + '/' + r.runs + ' vitórias</div><div class="small muted">' + (r.fastest ? 'mais rápida: ' + r.fastest + ' rodadas' : '') + '</div></div>';
+        h +=
+          '<div class="rec">' + img(id, locked ? 'locked' : '', '') +
+          '<p class="rname">' + (locked ? 'Bloqueada' : esc(hero.name)) + '</p><p class="muted">' + esc(hero.title) + '</p>' +
+          '<p class="big">' + (r.best ? fmt(r.best) : '0') + '</p>' +
+          '<p>' + (r.bestRank ? 'Nota ' + r.bestRank + '. ' : '') + r.wins + (r.wins === 1 ? ' vitória' : ' vitórias') + ' em ' + r.runs + (r.runs === 1 ? ' jornada' : ' jornadas') + '</p>' +
+          (r.fastest ? '<p class="muted">Vitória mais rápida em ' + r.fastest + ' rodadas</p>' : '') +
+          '</div>';
       }
       h += '</div>';
       const di = SV.dailyInfo();
       const dr = sv.daily[di.key];
       const deaths = Object.entries(sv.stats.deathsByStage).sort((a, b) => b[1] - a[1])[0];
-      h += '<div class="stats-line">Jornadas: <b>' + sv.stats.runs + '</b> · Vitórias: <b>' + sv.stats.wins + '</b> · Inimigos derrotados: <b>' + fmt(sv.stats.kills) + '</b> · Rodadas jogadas: <b>' + fmt(sv.stats.turns) + '</b><br>' +
-        'Terreiro mais distante: <b>' + (sv.stats.bestStage || '—') + '</b>' + (deaths ? ' · Onde você mais cai: <b>terreiro ' + deaths[0] + '</b>' : '') + '<br>' +
-        'Desafio do Dia (' + di.key.split('-').reverse().join('/') + '): ' + (dr ? '<b>' + fmt(dr.best) + '</b> (' + dr.rank + ')' + (dr.won ? ' — vencido' : '') + ', ' + dr.tries + ' tentativa(s)' : 'ainda não jogado') + '</div>';
+      h +=
+        '<div class="stats-line">' +
+        '<p>' + sv.stats.runs + (sv.stats.runs === 1 ? ' jornada' : ' jornadas') + ', ' + sv.stats.wins + (sv.stats.wins === 1 ? ' vitória' : ' vitórias') + ', ' + fmt(sv.stats.kills) + ' inimigos derrotados em ' + fmt(sv.stats.turns) + ' rodadas.</p>' +
+        (sv.stats.bestStage ? '<p>Terreiro mais distante: ' + sv.stats.bestStage + '.' + (deaths ? ' Onde você mais cai: terreiro ' + deaths[0] + '.' : '') + '</p>' : '') +
+        '<p>Desafio do Dia de ' + di.key.split('-').reverse().join('/') + ': ' + (dr ? fmt(dr.best) + ' de axé, nota ' + dr.rank + (dr.won ? ', vencido' : '') + ', em ' + dr.tries + (dr.tries === 1 ? ' tentativa.' : ' tentativas.') : 'ainda não jogado.') + '</p>' +
+        '</div>';
       body.innerHTML = h;
     } else if (tab === 'marks') {
       const n = Object.keys(sv.marks).length;
       let h = '<p class="muted">' + n + ' de ' + Object.keys(D.MARKS).length + ' marcas conquistadas.</p><div class="marks">';
-      for (const [id, m] of Object.entries(D.MARKS)) h += '<div class="mark' + (sv.marks[id] ? ' done' : '') + '"><span class="mk">' + (sv.marks[id] ? '✦' : '') + '</span><b>' + esc(m.name) + '</b><span class="small muted">' + esc(m.desc) + '</span></div>';
+      for (const [id, m] of Object.entries(D.MARKS)) h += '<div class="mark' + (sv.marks[id] ? ' done' : '') + '"><b>' + esc(m.name) + '</b>' + esc(m.desc) + (sv.marks[id] ? ' Conquistada.' : '') + '</div>';
       body.innerHTML = h + '</div>';
     } else if (tab === 'bestiary') {
       let h = '<div class="bestiary">';
       for (const [id, e] of Object.entries(D.ENEMIES)) {
         const seen = sv.seen.enemies[id];
-        h += '<div class="beast' + (seen ? '' : ' unknown') + '">' + img(id, '', seen ? e.name : '') + '<div>' + (seen ? '<b>' + esc(e.name) + '</b> <span class="muted">' + esc(e.kind) + ' · vida ' + e.hp + '</span><div>' + esc(e.desc) + '</div><div class="tip">' + esc(e.tip) + '</div>' : '<b>???</b><div class="muted">Ainda não encontrado.</div>') + '</div></div>';
+        h += '<div class="beast' + (seen ? '' : ' unknown') + '">' + img(id, '', '') + '<div>' + (seen ? '<b>' + esc(e.name) + '</b><p class="muted">' + esc(e.kind) + ', ' + e.hp + ' de vida</p><p>' + esc(e.desc) + '</p><p class="tip">' + esc(e.tip) + '</p>' : '<b>Desconhecida</b><p class="muted">Ainda não encontrada.</p>') + '</div></div>';
       }
       body.innerHTML = h + '</div>';
     } else {
@@ -1097,8 +1369,8 @@
         body.innerHTML = '<p class="muted">Nenhuma jornada terminada ainda.</p>';
         return;
       }
-      let h = '<table class="history"><tr><th>Data</th><th>Herói</th><th>Modo</th><th>Chegou a</th><th>Axé</th><th>Nota</th></tr>';
-      for (const r of sv.history) h += '<tr><td>' + esc(r.date.split('-').reverse().join('/')) + '</td><td>' + esc(D.HEROES[r.hero].name) + '</td><td>' + (r.mode === 'daily' ? 'Desafio do Dia' : r.mode === 'custom' ? 'Semente' : 'Normal') + '</td><td>' + (r.won ? 'Vitória' : 'Terreiro ' + r.stage) + '</td><td>' + fmt(r.score) + '</td><td>' + esc(r.rank) + '</td></tr>';
+      let h = '<table class="history"><tr><th>Data</th><th>Herói</th><th>Modo</th><th>Chegou a</th><th class="num">Axé</th><th>Nota</th></tr>';
+      for (const r of sv.history) h += '<tr><td>' + esc(r.date.split('-').reverse().join('/')) + '</td><td>' + esc(D.HEROES[r.hero].name) + '</td><td>' + (r.mode === 'daily' ? 'Desafio do Dia' : r.mode === 'custom' ? 'Semente' : 'Normal') + '</td><td>' + (r.won ? 'Vitória' : 'Terreiro ' + r.stage) + '</td><td class="num">' + fmt(r.score) + '</td><td>' + esc(r.rank) + '</td></tr>';
       body.innerHTML = h + '</table>';
     }
   }
@@ -1157,12 +1429,14 @@
   /* ------------------------------------------------------------------ início */
 
   function bind() {
-    $('#btn-new').addEventListener('click', () => {
+    const play = () => {
       sfx('select');
       G.provasSel = SV.get().lastProvas.slice();
       G.heroSel = SV.get().lastHero;
       show('heroes');
-    });
+    };
+    $('#btn-new').addEventListener('click', play);
+    $('#btn-foot-play').addEventListener('click', () => (SV.get().run ? continueRun() : play()));
     $('#btn-continue').addEventListener('click', () => {
       sfx('select');
       continueRun();
@@ -1172,14 +1446,11 @@
       const di = SV.dailyInfo();
       confirmNewRun(() => startRun({ hero: di.hero, provas: di.provas, seed: di.seed, mode: 'daily' }));
     });
-    $('#btn-journal').addEventListener('click', () => {
-      sfx('select');
-      show('journal');
-    });
-    $('#btn-help').addEventListener('click', () => {
-      sfx('select');
-      show('help');
-    });
+    for (const id of ['#btn-journal', '#btn-foot-journal'])
+      $(id).addEventListener('click', () => {
+        sfx('select');
+        show('journal');
+      });
     $('#btn-options').addEventListener('click', () => {
       sfx('select');
       show('options');
@@ -1224,14 +1495,19 @@
     );
 
     const cv = $('#board');
-    cv.addEventListener('pointermove', (e) => boardPointer(e, false));
+    cv.addEventListener('pointermove', boardMove);
     cv.addEventListener('pointerleave', () => {
       G.hover = null;
       R.hover = null;
       updateInspect();
     });
-    cv.addEventListener('pointerdown', (e) => (G.lastPointer = e.pointerType));
-    cv.addEventListener('click', (e) => boardPointer(e, true));
+    cv.addEventListener('pointerdown', boardDown);
+    cv.addEventListener('pointerup', boardUp);
+    cv.addEventListener('pointercancel', () => {
+      if (G.press) clearTimeout(G.press.timer);
+      G.press = null;
+    });
+    cv.addEventListener('contextmenu', (e) => e.preventDefault());
     document.addEventListener('keydown', onKey);
     document.addEventListener(
       'pointerdown',

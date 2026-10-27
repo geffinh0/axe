@@ -2,7 +2,7 @@
   "name": "axe-jogo",
   "version": "1.0.0",
   "private": true,
-  "description": "Axé — roguelite tático por turnos inspirado na Umbanda e na cosmologia iorubá.",
+  "description": "Axé, roguelite tático por turnos inspirado na Umbanda e na cosmologia iorubá.",
   "scripts": {
     "start": "python3 -m http.server 8080",
     "test": "node tests/rules.js && node tests/sim.js random 80 && node tests/sim.js tactical 4",

@@ -3,54 +3,163 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Axé — os filhos de santo contra os Ajogun</title>
-    <meta name="description" content="Roguelite tático por turnos inspirado na Umbanda e na cosmologia iorubá. Leia os ataques dos Ajogun, vire a força deles contra eles mesmos e enfrente Ikú." />
-    <meta name="theme-color" content="#0b0810" />
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230b0810'/%3E%3Cpath d='M8 2c2 3 4 4 4 7a4 4 0 0 1-8 0c0-3 2-4 4-7z' fill='%23e8b84a'/%3E%3C/svg%3E" />
+    <title>Axé, um jogo de tática contra os Ajogun</title>
+    <meta name="description" content="Jogo de tática por turnos no navegador, inspirado na Umbanda e na cosmologia iorubá. Filhos de santo contra os Ajogun, em seis terreiros, até Ikú." />
+    <meta name="theme-color" content="#ddd6c6" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%232a2a26'/%3E%3Cpath d='M8 2c2 3 4 4 4 7a4 4 0 0 1-8 0c0-3 2-4 4-7z' fill='%23ddd6c6'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="css/fonts.css" />
     <link rel="stylesheet" href="css/style.css" />
+    <script>
+      document.documentElement.classList.add('js');
+    </script>
   </head>
   <body>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></symbol>
+      <symbol id="i-mute" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /><path d="M16.5 9.5l5 5M21.5 9.5l-5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></symbol>
+      <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /></symbol>
+    </svg>
     <div id="app">
-      <!-- Título -->
-      <section id="scr-title" class="screen active" aria-label="Início">
-        <div class="embers" id="embers" aria-hidden="true"></div>
-        <div class="title-wrap">
-          <div class="title-sprites" id="title-sprites" aria-hidden="true"></div>
-          <h1 class="logo">Axé</h1>
-          <p class="tagline">Os filhos de santo contra os Ajogun</p>
-          <p class="lore">Os Ajogun — as forças da desordem — romperam o caminho entre o Orun e o Aiyê. Ikú, a Morte, vem buscar a aldeia antes da hora. Carregue o axé do seu orixá por seis terreiros e feche os caminhos deles.</p>
-          <nav class="menu" id="title-menu">
-            <button class="btn primary" id="btn-continue" hidden>Continuar jornada <small id="continue-info"></small></button>
-            <button class="btn primary" id="btn-new">Nova jornada</button>
-            <button class="btn" id="btn-daily">Desafio do Dia <small id="daily-info"></small></button>
-            <div class="menu-row">
-              <button class="btn" id="btn-journal">Diário</button>
-              <button class="btn" id="btn-help">Como jogar</button>
-              <button class="btn" id="btn-options">Opções</button>
-            </div>
-          </nav>
-          <p class="best-line" id="best-line"></p>
+      <!-- Página inicial: o terreiro ao vivo fica fixo de um lado, a leitura rola do outro. -->
+      <section id="scr-title" class="screen active front" aria-label="Início">
+        <div class="split">
+          <div class="reading">
+            <header class="intro">
+              <nav class="intro-nav" aria-label="Atalhos">
+                <a class="link" href="#regras">Como jogar</a>
+                <p class="wordmark" aria-hidden="true">Axé</p>
+                <button class="link" type="button" id="btn-journal">Diário</button>
+              </nav>
+              <div class="intro-main">
+                <h1>Leia o golpe antes de ele cair</h1>
+                <p class="lead">Axé é um jogo de tática por turnos, inspirado na Umbanda e na cosmologia iorubá. Filhos de santo contra os Ajogun, em seis terreiros, até Ikú.</p>
+                <div class="intro-actions">
+                  <button class="btn primary" type="button" id="btn-continue" hidden>Continuar jornada</button>
+                  <button class="btn primary" type="button" id="btn-new">Jogar</button>
+                  <p class="continue-info" id="continue-info"></p>
+                  <button class="link" type="button" id="btn-daily"><span>Desafio do Dia:&nbsp;</span><span id="daily-info"></span></button>
+                </div>
+                <p class="best-line" id="best-line"></p>
+              </div>
+            </header>
+
+            <section class="rules" id="regras" aria-labelledby="regras-h">
+              <h2 id="regras-h" data-reveal>Como jogar</h2>
+              <p data-reveal>Você faz uma ação e depois todos os inimigos agem. Andar contra um inimigo é golpeá-lo.</p>
+              <p data-reveal>Todo ataque é avisado uma rodada antes. As casas em vermelho serão atingidas: saia delas, ou derrote quem vai bater antes que ele aja.</p>
+              <figure class="shot" data-reveal>
+                <img src="assets/marca-vermelha.png" width="640" height="384" alt="Trecho do tabuleiro: um Kiumba ao lado de Kayode, com a casa de Kayode marcada em vermelho." />
+                <figcaption>O Kiumba preparou o golpe. A casa vermelha é onde ele vai bater na próxima rodada.</figcaption>
+              </figure>
+              <p data-reveal>Os golpes dos Ajogun ferem qualquer um nas casas marcadas, inclusive outros Ajogun. Empurrar uma criatura contra a pedra, contra outra criatura ou para dentro do rio também fere. Boa parte do jogo é fazer os inimigos se destruírem.</p>
+              <div class="controls" data-reveal>
+                <table>
+                  <caption>No teclado</caption>
+                  <tr><th scope="row"><kbd>Setas</kbd> ou <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></th><td>Andar e golpear</td></tr>
+                  <tr><th scope="row"><kbd>Espaço</kbd></th><td>Habilidade: escolha a direção e aperte de novo</td></tr>
+                  <tr><th scope="row"><kbd>E</kbd></th><td>Esperar uma rodada</td></tr>
+                  <tr><th scope="row"><kbd>Esc</kbd></th><td>Cancelar ou pausar</td></tr>
+                </table>
+                <table>
+                  <caption>No toque</caption>
+                  <tr><th scope="row">Tocar numa casa vizinha</th><td>Andar e golpear</td></tr>
+                  <tr><th scope="row">Deslizar o dedo</th><td>Andar na direção do gesto</td></tr>
+                  <tr><th scope="row">Segurar o dedo numa casa</th><td>Ver o que há nela</td></tr>
+                  <tr><th scope="row">Botão da habilidade</th><td>Toque nele, depois na direção, e confirme</td></tr>
+                </table>
+              </div>
+            </section>
+
+            <section class="journey" id="jornada" aria-labelledby="jornada-h">
+              <h2 id="jornada-h" data-reveal>A jornada</h2>
+              <p data-reveal>Seis terreiros, em 10 a 15 minutos. Entre um e outro, na encruzilhada, Exu abre os caminhos e você escolhe uma dádiva ou um banho de ervas.</p>
+              <div class="slip" data-reveal>
+                <h3>Mata Sagrada</h3>
+                <p class="slip-row"><span>Entrada da Mata</span><i></i><span>2 ondas</span></p>
+                <p class="slip-row"><span>Clareira de Oxóssi</span><i></i><span>2 ondas</span></p>
+                <h3>Beira do Rio</h3>
+                <p class="slip-row"><span>Remanso de Oxum</span><i></i><span>3 ondas</span></p>
+                <p class="slip-row"><span>Cachoeira, com Ègbà</span><i></i><span>3 ondas</span></p>
+                <h3>Pedreira de Xangô</h3>
+                <p class="slip-row"><span>Pedreira</span><i></i><span>3 ondas</span></p>
+                <h3>Calunga</h3>
+                <p class="slip-row"><span>Portão de Ikú</span><i></i><span>Ikú, a Morte</span></p>
+                <p class="slip-end"><span>Ikú recua para o Orun</span><span>cerca de 12 minutos</span></p>
+              </div>
+            </section>
+          </div>
+
+          <div class="stage" data-ui>
+            <canvas id="stage-board" aria-label="Terreiro ao vivo: o jogo jogando sozinho"></canvas>
+            <div class="stage-bar"><span id="stage-place">Mata Sagrada</span><span id="stage-who"></span></div>
+          </div>
         </div>
+
+        <section class="paths" id="caminhos" aria-labelledby="caminhos-h">
+          <h2 id="caminhos-h" class="paths-head"><span>Quatro</span> <span>caminhos</span></h2>
+          <div class="paths-dark">
+            <p class="paths-intro" data-reveal>Cada filho de santo carrega o axé de um orixá e luta de um jeito. Escolha um e veja.</p>
+            <div class="picker" id="hero-picker" role="radiogroup" aria-label="Filhos de santo"></div>
+          </div>
+          <div class="paths-light">
+            <div class="fragment" data-ui id="hero-fragment">
+              <canvas id="paths-board" aria-label="Terreiro ao vivo com o filho de santo escolhido"></canvas>
+              <div class="fragment-card" id="hero-card"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="creatures" id="criaturas" aria-labelledby="criaturas-h">
+          <div class="creatures-list">
+            <h2 id="criaturas-h" data-reveal>Quem vem pelo caminho</h2>
+            <div id="creature-rows"></div>
+          </div>
+          <figure class="creatures-shot" data-reveal>
+            <img src="assets/calunga-iku.png" width="864" height="864" loading="lazy" alt="O terreiro da Calunga: Ikú surge na borda e marca em vermelho a faixa que vai atravessar." />
+            <figcaption>Ikú escolhe uma faixa do terreiro e a atravessa na rodada seguinte. Depois fica atordoada, e o próximo golpe dobra.</figcaption>
+          </figure>
+        </section>
+
+        <section class="letter" id="sobre" aria-labelledby="sobre-h">
+          <div class="letter-col">
+            <h2 id="sobre-h" data-reveal>Sobre o tema</h2>
+            <p data-reveal>Axé é uma homenagem à cosmologia iorubá e à Umbanda. A palavra quer dizer força: a energia que move as coisas, que se pede e se oferece nos terreiros.</p>
+            <p data-reveal>Os heróis são filhos de santo que carregam o axé de seus orixás. Ogum, que abre os caminhos. Oxóssi, o caçador de uma flecha só. Xangô, do trovão e da justiça. Iansã, dos ventos.</p>
+            <p data-reveal>Os inimigos são os Ajogun, que na tradição iorubá trazem perda, encrenca, doença, maldição, paralisia e morte, e os kiumbas, espíritos obsessores da Umbanda. Exu aparece como o guardião da encruzilhada, que abre os caminhos entre um terreiro e outro. Nunca como vilão.</p>
+            <p data-reveal>O jogo não reproduz ritos e não pretende falar por nenhuma casa ou tradição.</p>
+            <p class="signoff" data-reveal>Laroyê, e bom caminho.</p>
+          </div>
+        </section>
+
+        <footer class="quiet">
+          <p>Axé, um jogo de tática por turnos</p>
+          <nav aria-label="Rodapé">
+            <button class="link" type="button" id="btn-foot-play">Jogar</button>
+            <a class="link" href="#regras">Como jogar</a>
+            <button class="link" type="button" id="btn-foot-journal">Diário</button>
+            <button class="link" type="button" id="btn-options">Opções</button>
+          </nav>
+          <p>2026. Fontes Bodoni Moda e Jost, licença OFL.</p>
+        </footer>
       </section>
 
       <!-- Escolha de herói -->
-      <section id="scr-heroes" class="screen" aria-label="Escolha seu filho de santo">
+      <section id="scr-heroes" class="screen paper" aria-label="Escolha seu filho de santo">
         <div class="page">
           <header class="page-head">
-            <button class="btn ghost" data-back>← Voltar</button>
+            <button class="link back" type="button" data-back>Voltar</button>
             <h2>Escolha seu caminho</h2>
-            <span></span>
           </header>
-          <div class="hero-grid" id="hero-grid"></div>
+          <div class="hero-grid" id="hero-grid" role="radiogroup" aria-label="Filhos de santo"></div>
           <div class="hero-detail" id="hero-detail"></div>
           <div class="provas" id="provas"></div>
           <details class="advanced">
-            <summary>Opções avançadas</summary>
-            <label class="seed-field">Semente (para repetir ou compartilhar um caminho) <input id="seed-input" maxlength="32" placeholder="vazio = caminho novo" autocomplete="off" /></label>
+            <summary>Usar uma semente</summary>
+            <label class="seed-field">Com a mesma semente, o caminho se repete. Bom para compartilhar um desafio com alguém. <input id="seed-input" maxlength="32" placeholder="Vazio: caminho novo" autocomplete="off" /></label>
             <p class="small muted">Jornadas com semente escolhida não contam para os recordes.</p>
           </details>
           <div class="start-row">
-            <button class="btn primary big" id="btn-start">Começar jornada</button>
+            <button class="btn primary big" type="button" id="btn-start">Começar jornada</button>
           </div>
         </div>
       </section>
@@ -58,48 +167,48 @@
       <!-- Jogo -->
       <section id="scr-game" class="screen" aria-label="Terreiro">
         <header class="hud-top">
-          <div class="hud-stage"><span id="hud-stage">Terreiro 1/6</span> <strong id="hud-stage-name"></strong></div>
+          <div class="hud-stage"><span id="hud-stage">Terreiro 1 de 6</span><strong id="hud-stage-name"></strong></div>
           <div class="hud-waves" id="hud-waves"></div>
-          <div class="hud-score"><span class="hs-turn">Rodada <strong id="hud-turn">0</strong> · </span>Axé <strong id="hud-score">0</strong></div>
+          <div class="hud-score"><span class="hs-turn">Rodada <b id="hud-turn">0</b></span><span>Axé <b id="hud-score">0</b></span></div>
           <div class="hud-buttons">
-            <button class="icon-btn" id="btn-sound" aria-label="Som" title="Som (M)">♪</button>
-            <button class="icon-btn" id="btn-pause" aria-label="Pausar" title="Pausar (Esc)">❚❚</button>
+            <button class="icon-btn" type="button" id="btn-sound" aria-label="Som ligado" title="Som (M)"><svg width="20" height="20" aria-hidden="true"><use href="#i-sound" /></svg></button>
+            <button class="icon-btn" type="button" id="btn-pause" aria-label="Pausar" title="Pausar (Esc)"><svg width="20" height="20" aria-hidden="true"><use href="#i-pause" /></svg></button>
           </div>
         </header>
         <div class="game-main">
           <aside class="panel side-left">
             <div class="hero-card" id="hud-hero"></div>
             <div class="hearts" id="hud-hearts" aria-label="Vida"></div>
-            <button class="ability" id="btn-ability"></button>
-            <button class="btn wait-btn" id="btn-wait">Esperar <kbd>E</kbd></button>
+            <button class="ability" type="button" id="btn-ability"></button>
+            <button class="btn wait-btn" type="button" id="btn-wait">Esperar <kbd>E</kbd></button>
             <div class="boons-list" id="hud-boons"></div>
           </aside>
           <div class="board-wrap" id="board-wrap">
             <canvas id="board" aria-label="Terreiro: tabuleiro de 9 por 9 casas"></canvas>
             <div class="banner" id="banner"></div>
-            <div class="toast" id="toast"></div>
+            <div class="toast" id="toast" role="status"></div>
           </div>
           <aside class="panel side-right">
             <div class="feed" id="feed" aria-live="polite"></div>
             <div class="inspect" id="inspect"></div>
             <div class="legend">
-              <div><i class="sw sw-red"></i>Ataque preparado (próxima rodada)</div>
-              <div><i class="sw sw-purple"></i>Chegada de criatura</div>
-              <div><i class="sw sw-fire"></i>Fogo: não termine o turno nele</div>
+              <p><i class="sw sw-red"></i>Ataque marcado para a próxima rodada</p>
+              <p><i class="sw sw-purple"></i>Criatura chegando</p>
+              <p><i class="sw sw-fire"></i>Fogo: não termine o turno nele</p>
             </div>
           </aside>
         </div>
         <div class="actionbar">
-          <button class="ability mini" id="btn-ability-m"></button>
-          <button class="btn" id="btn-wait-m">Esperar</button>
+          <button class="ability mini" type="button" id="btn-ability-m"></button>
+          <button class="btn" type="button" id="btn-wait-m">Esperar</button>
         </div>
 
         <!-- Encruzilhada -->
         <div class="overlay" id="ov-cross" hidden>
-          <div class="sheet cross">
+          <div class="dialog cross" role="dialog" aria-labelledby="cross-h">
             <div class="cross-head">
-              <h2>Encruzilhada</h2>
-              <p class="muted">Laroyê! Peça licença a Exu, o guardião dos caminhos, e escolha por onde seguir.</p>
+              <h2 id="cross-h">Encruzilhada</h2>
+              <p>Laroyê! Peça licença a Exu, o guardião dos caminhos, e escolha por onde seguir.</p>
             </div>
             <div class="cross-body">
               <div class="stage-result" id="stage-result"></div>
@@ -110,100 +219,106 @@
 
         <!-- Pausa -->
         <div class="overlay" id="ov-pause" hidden>
-          <div class="sheet small-sheet">
-            <h2>Pausa</h2>
+          <div class="dialog small" role="dialog" aria-labelledby="pause-h">
+            <h2 id="pause-h">Pausa</h2>
             <div class="menu">
-              <button class="btn primary" id="btn-resume">Continuar</button>
-              <button class="btn" id="btn-pause-help">Como jogar</button>
-              <button class="btn" id="btn-pause-options">Opções</button>
-              <button class="btn danger" id="btn-abandon">Abandonar jornada</button>
-              <button class="btn ghost" id="btn-pause-menu">Salvar e sair para o início</button>
+              <button class="btn primary" type="button" id="btn-resume">Continuar</button>
+              <button class="btn" type="button" id="btn-pause-help">Como jogar</button>
+              <button class="btn" type="button" id="btn-pause-options">Opções</button>
+              <button class="btn" type="button" id="btn-pause-menu">Salvar e sair para o início</button>
+              <button class="btn danger" type="button" id="btn-abandon">Abandonar jornada</button>
             </div>
           </div>
         </div>
 
         <!-- Fim de jornada -->
         <div class="overlay" id="ov-end" hidden>
-          <div class="sheet end" id="end-sheet"></div>
+          <div class="dialog end" role="dialog" id="end-sheet"></div>
         </div>
       </section>
 
       <!-- Diário -->
-      <section id="scr-journal" class="screen" aria-label="Diário">
+      <section id="scr-journal" class="screen paper" aria-label="Diário">
         <div class="page">
           <header class="page-head">
-            <button class="btn ghost" data-back>← Voltar</button>
+            <button class="link back" type="button" data-back>Voltar</button>
             <h2>Diário</h2>
-            <span></span>
           </header>
           <div class="tabs" role="tablist" id="journal-tabs">
-            <button role="tab" data-tab="records" class="active">Recordes</button>
-            <button role="tab" data-tab="marks">Marcas</button>
-            <button role="tab" data-tab="bestiary">Bestiário</button>
-            <button role="tab" data-tab="history">Histórico</button>
+            <button role="tab" type="button" data-tab="records" class="active">Recordes</button>
+            <button role="tab" type="button" data-tab="marks">Marcas</button>
+            <button role="tab" type="button" data-tab="bestiary">Bestiário</button>
+            <button role="tab" type="button" data-tab="history">Histórico</button>
           </div>
           <div class="tab-body" id="journal-body"></div>
         </div>
       </section>
 
-      <!-- Como jogar -->
-      <section id="scr-help" class="screen" aria-label="Como jogar">
+      <!-- Como jogar (aberto pela pausa) -->
+      <section id="scr-help" class="screen paper" aria-label="Como jogar">
         <div class="page narrow">
           <header class="page-head">
-            <button class="btn ghost" data-back>← Voltar</button>
+            <button class="link back" type="button" data-back>Voltar</button>
             <h2>Como jogar</h2>
-            <span></span>
           </header>
           <div class="help">
-            <div class="help-item"><b>Objetivo.</b> Feche os seis terreiros derrotando todas as ondas de inimigos. No último, enfrente Ikú, a Morte.</div>
-            <div class="help-item"><b>Turnos.</b> Você faz uma ação; depois, todos os inimigos agem. Andar contra um inimigo é golpeá-lo.</div>
-            <div class="help-item"><b>Marcas vermelhas.</b> Inimigos sempre avisam: a casa marcada será atacada na rodada seguinte. Saia dela — ou derrote o inimigo antes.</div>
-            <div class="help-item"><b>Fogo amigo.</b> Os ataques dos Ajogun ferem qualquer um nas casas marcadas, inclusive outros Ajogun. Empurrões contra pedras, outras criaturas e o rio também ferem.</div>
-            <div class="help-item"><b>Ondas.</b> Marcas roxas no chão mostram onde a próxima onda vai surgir. Ela chega quando a anterior cai — ou quando o tempo acaba.</div>
-            <div class="help-item"><b>Encruzilhada.</b> Entre terreiros, escolha uma dádiva que muda o seu jeito de lutar, ou um Banho de Ervas para curar 2 de vida.</div>
-            <div class="help-item"><b>Pontuação.</b> Terreiros rápidos, sem dano e com inimigos derrotados pelos próprios aliados rendem mais axé. Provações multiplicam tudo.</div>
+            <p><b>Objetivo.</b> Feche os seis terreiros derrotando todas as ondas de inimigos. No último, enfrente Ikú, a Morte.</p>
+            <p><b>Turnos.</b> Você faz uma ação e depois todos os inimigos agem. Andar contra um inimigo é golpeá-lo.</p>
+            <p><b>Casas vermelhas.</b> Todo ataque é avisado uma rodada antes. Saia da casa marcada, ou derrote o inimigo antes que ele aja.</p>
+            <p><b>Fogo amigo.</b> Os golpes dos Ajogun ferem qualquer um nas casas marcadas, inclusive outros Ajogun. Empurrões contra pedras, outras criaturas e o rio também ferem.</p>
+            <p><b>Ondas.</b> Marcas roxas no chão mostram onde a próxima onda vai surgir. Ela chega quando a anterior cai, ou quando o tempo acaba.</p>
+            <p><b>Encruzilhada.</b> Entre terreiros, escolha uma dádiva que muda o seu jeito de lutar, ou um banho de ervas para curar 2 de vida.</p>
+            <p><b>Pontuação.</b> Terreiros rápidos, sem dano e com inimigos derrotados pelos próprios aliados rendem mais axé. Provações multiplicam tudo.</p>
           </div>
-          <table class="keys">
-            <tr><td><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> ou <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></td><td>Andar / golpear</td></tr>
-            <tr><td><kbd>Espaço</kbd> ou <kbd>Q</kbd></td><td>Habilidade (escolha a direção e confirme)</td></tr>
-            <tr><td><kbd>E</kbd></td><td>Esperar uma rodada</td></tr>
-            <tr><td><kbd>Esc</kbd></td><td>Cancelar / pausar</td></tr>
-            <tr><td><kbd>M</kbd></td><td>Som liga/desliga</td></tr>
-            <tr><td>Toque / clique</td><td>Casas vizinhas movem ou golpeiam; outras casas mostram informações</td></tr>
-          </table>
-          <div class="about">
-            <h3>Sobre o tema</h3>
-            <p>Axé é uma homenagem à cosmologia iorubá e à Umbanda. Os heróis são filhos de santo que carregam o axé de seus orixás. Os inimigos são os <i>Ajogun</i> — na tradição iorubá, as forças adversas que trazem perda, doença, maldição, paralisia, encrenca e morte — e os <i>kiumbas</i>, espíritos obsessores. Exu aparece como o guardião que abre os caminhos da encruzilhada. O jogo não reproduz ritos e não pretende falar por nenhuma casa ou tradição.</p>
+          <div class="controls">
+            <table>
+              <caption>No teclado</caption>
+              <tr><th scope="row"><kbd>Setas</kbd> ou <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></th><td>Andar e golpear</td></tr>
+              <tr><th scope="row"><kbd>Espaço</kbd> ou <kbd>Q</kbd></th><td>Habilidade: escolha a direção e aperte de novo</td></tr>
+              <tr><th scope="row"><kbd>E</kbd></th><td>Esperar uma rodada</td></tr>
+              <tr><th scope="row"><kbd>Esc</kbd></th><td>Cancelar ou pausar</td></tr>
+              <tr><th scope="row"><kbd>M</kbd></th><td>Ligar ou desligar o som</td></tr>
+            </table>
+            <table>
+              <caption>No toque</caption>
+              <tr><th scope="row">Tocar numa casa vizinha</th><td>Andar e golpear</td></tr>
+              <tr><th scope="row">Deslizar o dedo</th><td>Andar na direção do gesto</td></tr>
+              <tr><th scope="row">Segurar o dedo numa casa</th><td>Ver o que há nela</td></tr>
+              <tr><th scope="row">Botão da habilidade</th><td>Toque nele, depois na direção, e toque de novo para confirmar</td></tr>
+            </table>
           </div>
         </div>
       </section>
 
       <!-- Opções -->
-      <section id="scr-options" class="screen" aria-label="Opções">
+      <section id="scr-options" class="screen paper" aria-label="Opções">
         <div class="page narrow">
           <header class="page-head">
-            <button class="btn ghost" data-back>← Voltar</button>
+            <button class="link back" type="button" data-back>Voltar</button>
             <h2>Opções</h2>
-            <span></span>
           </header>
           <div class="options">
             <label>Efeitos sonoros <input type="range" min="0" max="1" step="0.05" id="opt-sfx" /></label>
             <label>Música <input type="range" min="0" max="1" step="0.05" id="opt-music" /></label>
             <label class="check"><input type="checkbox" id="opt-fast" /> Animações rápidas</label>
-            <label class="check"><input type="checkbox" id="opt-shake" /> Tremor de tela e partículas</label>
-            <label class="check"><input type="checkbox" id="opt-hints" /> Mostrar dicas e prévias de ação</label>
+            <label class="check"><input type="checkbox" id="opt-shake" /> Tremor de tela, vibração e partículas</label>
+            <label class="check"><input type="checkbox" id="opt-hints" /> Dicas e prévias de ação no tabuleiro</label>
             <p class="small muted" id="storage-note"></p>
-            <button class="btn danger" id="btn-reset">Apagar todo o progresso</button>
+            <button class="btn danger" type="button" id="btn-reset">Apagar todo o progresso</button>
           </div>
         </div>
       </section>
     </div>
+
+    <noscript><p class="noscript">Axé precisa de JavaScript ligado para funcionar.</p></noscript>
 
     <script src="js/util.js"></script>
     <script src="js/data.js"></script>
     <script src="js/engine.js"></script>
     <script src="js/sprites.js"></script>
     <script src="js/render.js"></script>
+    <script src="js/bot.js"></script>
+    <script src="js/demo.js"></script>
     <script src="js/audio.js"></script>
     <script src="js/save.js"></script>
     <script src="js/main.js"></script>

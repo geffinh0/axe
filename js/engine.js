@@ -641,7 +641,7 @@
     return S.units.length === 0 && S.portals.length === 0 && S.waveIdx >= S.waves.length;
   }
 
-  // Ação do jogador. Devolve { ok, events, free } — free = ação devolvida (sem rodada inimiga).
+  // Ação do jogador. Devolve { ok, events, free }; free = ação devolvida (sem rodada inimiga).
   function act(S, a) {
     const ev = [];
     if (S.phase !== 'play') return { ok: false, events: ev };
