@@ -69,7 +69,7 @@ Tudo fica no `localStorage` do navegador: configurações, recordes, marcas, des
 
 A página em volta do jogo mostra o próprio jogo: o tabuleiro à direita (ou logo abaixo do botão Jogar, no celular) é um terreiro de verdade, jogado ao vivo pelo jogador automático com as mesmas regras e marcas do jogo, e muda de terreiro conforme a leitura avança. Em "Quatro caminhos" você escolhe um filho de santo e o vê lutar. As duas imagens fixas (`assets/`) também saem do motor e do renderizador do jogo, geradas por `node tests/capture.js`.
 
-Fontes: Bodoni Moda e Jost, de Owen Earl, sob a licença SIL Open Font License 1.1, embutidas em `css/fonts.css` para funcionar também abrindo o arquivo direto do disco.
+Fontes: Pixelify Sans, de Stefie Justprince, nos títulos e botões (a mesma linguagem de pixel do jogo), e Jost, de Owen Earl, no texto; as duas sob a licença SIL Open Font License 1.1, embutidas em `css/fonts.css` para funcionar também abrindo o arquivo direto do disco.
 
 ## Testes
 
@@ -89,8 +89,8 @@ npm run test:e2e     # joga uma jornada inteira pela interface e testa toque, ce
 
 ```
 index.html        página inicial, telas e interface
-css/fonts.css     Bodoni Moda e Jost embutidas (OFL)
-css/style.css     visual e layout para computador, celular em pé e deitado
+css/fonts.css     Pixelify Sans e Jost embutidas (OFL)
+css/style.css     visual (as cores do terreiro à noite) e layout para computador e celular
 js/util.js        RNG determinístico e utilidades
 js/data.js        heróis, criaturas, dádivas, terreiros, provações, marcas e dicas
 js/engine.js      regras puras (estado em JSON, sem DOM)

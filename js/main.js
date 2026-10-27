@@ -164,7 +164,7 @@
       b.className = 'pick';
       b.setAttribute('role', 'radio');
       b.dataset.hero = id;
-      b.innerHTML = img(id, '', '') + '<span>' + esc(hh.name) + '<small>' + esc(hh.title) + '</small></span>';
+      b.innerHTML = img(id, '', '') + '<span><b>' + esc(hh.name) + '</b><small>' + esc(hh.title) + '</small></span>';
       b.addEventListener('click', () => pickPath(id));
       picker.appendChild(b);
     }

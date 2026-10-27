@@ -340,7 +340,7 @@
     },
     ability: {
       key: 'Sua habilidade está pronta: aperte Espaço, escolha a direção e aperte de novo.',
-      touch: 'Sua habilidade está pronta: toque no botão verde, depois na casa ou direção, e toque de novo para confirmar.',
+      touch: 'Sua habilidade está pronta: toque no botão laranja, depois na casa ou direção, e toque de novo para confirmar.',
     },
     wave: { key: 'Marcas roxas no chão mostram onde a próxima onda vai surgir.' },
     friendly: { key: 'Ataques dos inimigos também ferem outros inimigos. Use isso a seu favor.' },

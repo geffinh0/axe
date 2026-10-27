@@ -540,7 +540,7 @@
 
     function drawBadge(ctx, cx, cy, text, bg, fg) {
       const p = R.px;
-      ctx.font = '500 ' + Math.round(R.tile * 0.24) + 'px Jost, system-ui, sans-serif';
+      ctx.font = '600 ' + Math.round(R.tile * 0.26) + 'px "Pixelify Sans", Jost, system-ui, sans-serif';
       const w = ctx.measureText(text).width + p * 3;
       const h = R.tile * 0.3;
       ctx.fillStyle = bg;
@@ -1007,7 +1007,7 @@
         const k = t.t / t.life;
         const y = t.y - ease(k) * R.tile * 0.5;
         ctx.globalAlpha = k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3;
-        ctx.font = '500 ' + Math.round(R.tile * (t.big ? 0.36 : 0.26)) + 'px Jost, system-ui, sans-serif';
+        ctx.font = '600 ' + Math.round(R.tile * (t.big ? 0.38 : 0.28)) + 'px "Pixelify Sans", Jost, system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.lineWidth = R.px * 1.5;

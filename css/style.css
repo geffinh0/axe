@@ -1,22 +1,26 @@
 :root {
-  /* Areia e musgo: o chão de terra do terreiro, a tinta de carvão, a folha. */
-  --bg: #ddd6c6;
-  --surface: #d2cab8;
-  --control: #c6bda9;
-  --paper: #e5e3dd;
-  --ink: #2a2a26;
-  --muted: #59574e;
-  --accent: #4f6238;
-  --accent-strong: #3e4e2b;
-  --accent-ink: #ffffff;
-  --field-1: #3f5a2a;
-  --field-1-ink: #ffffff;
-  --night: #1b1a17;
-  --night-ink: #efeeea;
-  --danger: #8a2e22;
-  --threat: #b4382c;
+  /* As cores do próprio jogo: a noite da Mata Sagrada, o chão do terreiro, o fogo e a marca vermelha. */
+  --bg: #0b1510;
+  --deep: #050b07;
+  --surface: #15241a;
+  --control: #213826;
+  --raise: #2c4932;
+  --paper: #1c3022;
+  --ink: #e8e9e3;
+  --muted: #a5ad9e;
+  --muted-inv: #46503f;
+  --accent: #f28a2e;
+  --accent-strong: #ffa34f;
+  --accent-ink: #1b0e04;
+  --floor: #22402b;
+  --field-1: #2e1c16;
+  --field-1-ink: #e8e9e3;
+  --night: #070d09;
+  --night-ink: #e8e9e3;
+  --danger: #ff8573;
+  --threat: #e0473b;
 
-  --font-display: 'Bodoni Moda', 'Bodoni 72', Didot, Georgia, serif;
+  --font-display: 'Pixelify Sans', 'Jost', system-ui, sans-serif;
   --font-text: 'Jost', 'Futura', 'Century Gothic', system-ui, sans-serif;
 
   --step-small: clamp(0.8125rem, 0.79rem + 0.1vw, 0.875rem);
@@ -34,8 +38,10 @@
   --t-reveal: 800ms;
 
   --gap: 12px;
+  /* Cantos em degrau de 4px, o mesmo pixel dos sprites. */
+  --px-corners: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
   --pad: clamp(20px, 4vw, 64px);
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 * {
@@ -58,6 +64,8 @@ body {
   letter-spacing: 0.01em;
   -webkit-tap-highlight-color: transparent;
   font-kerning: normal;
+  /* A Pixelify junta "fi" num desenho só; no português isso confunde a leitura. */
+  font-variant-ligatures: no-common-ligatures;
 }
 body {
   min-height: 100svh;
@@ -77,9 +85,9 @@ h2,
 h3 {
   margin: 0;
   font-family: var(--font-display);
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  line-height: 0.98;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.02;
   text-wrap: balance;
   hyphens: none;
 }
@@ -125,12 +133,24 @@ kbd {
   padding: 0.75em 1.4em;
   min-height: 48px;
   cursor: pointer;
-  font-weight: 500;
+  font-family: var(--font-display);
+  font-size: 1.1em;
+  font-weight: 600;
+  letter-spacing: 0.03em;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5em;
+  clip-path: var(--px-corners);
   transition: transform var(--t-press) var(--ease-out), background-color var(--t-hover) ease, color var(--t-hover) ease;
+}
+/* O recorte dos cantos cortaria um contorno por fora: o foco é desenhado por dentro. */
+.btn:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: -7px;
+}
+.btn.primary:focus-visible {
+  outline-color: var(--accent-ink);
 }
 .btn:active {
   transform: scale(0.97);
@@ -184,7 +204,7 @@ kbd {
 }
 @media (hover: hover) and (pointer: fine) {
   .btn:hover {
-    background: var(--surface);
+    background: var(--raise);
   }
   .btn.primary:hover {
     background: var(--accent-strong);
@@ -193,7 +213,7 @@ kbd {
     text-decoration-color: currentColor;
   }
   .icon-btn:hover {
-    background: var(--surface);
+    background: var(--control);
   }
 }
 
@@ -274,10 +294,10 @@ kbd {
 }
 .wordmark {
   font-family: var(--font-display);
-  font-weight: 500;
+  font-weight: 600;
   font-size: var(--step-display);
   line-height: 0.9;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
   margin: 0;
 }
 .intro-main {
@@ -411,7 +431,7 @@ figcaption {
   flex: 1;
   height: 4px;
   align-self: center;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4'%3E%3Ccircle cx='4' cy='2' r='1.6' fill='%2359574e'/%3E%3C/svg%3E") repeat-x left center;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4'%3E%3Ccircle cx='4' cy='2' r='1.6' fill='%23a5ad9e'/%3E%3C/svg%3E") repeat-x left center;
   opacity: 0.7;
 }
 .slip-row span:last-child {
@@ -421,7 +441,7 @@ figcaption {
   margin: 28px -24px 0;
   height: 44px;
   background: var(--ink);
-  color: var(--paper);
+  color: var(--bg);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -443,11 +463,11 @@ figcaption {
   padding: 18svh var(--pad) 160px;
 }
 .paths-dark {
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--deep);
+  color: var(--ink);
 }
 .paths-light {
-  background: var(--paper);
+  background: var(--floor);
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -466,7 +486,7 @@ figcaption {
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--paper);
+  color: var(--ink);
   text-align: left;
   font-size: var(--step-lead);
   line-height: 1.25;
@@ -482,6 +502,10 @@ figcaption {
 .pick img {
   width: 48px;
   height: 48px;
+}
+.pick b {
+  font-family: var(--font-display);
+  font-weight: 600;
 }
 .pick small {
   display: block;
@@ -509,7 +533,7 @@ figcaption {
   pointer-events: none;
 }
 .paths-head span:first-child {
-  color: var(--paper);
+  color: var(--ink);
 }
 
 /* Fragmento real do jogo (tabuleiro ao vivo e ficha do herói). */
@@ -534,7 +558,7 @@ figcaption {
   font-size: 24px;
 }
 [data-ui] .fragment-card .sauda {
-  color: #b9b2a2;
+  color: var(--muted);
 }
 [data-ui] .fragment-card b {
   font-weight: 500;
@@ -578,7 +602,8 @@ figcaption {
   margin-top: 2px;
 }
 .crow b {
-  font-weight: 500;
+  font-family: var(--font-display);
+  font-weight: 600;
 }
 .crow .what {
   display: block;
@@ -617,6 +642,7 @@ figcaption {
 }
 .letter .signoff {
   font-family: var(--font-display);
+  font-weight: 600;
   font-size: var(--step-lead);
   margin-top: 40px;
 }
@@ -754,19 +780,18 @@ figcaption {
 }
 .hero-opt[aria-checked='true'] {
   background: var(--ink);
-  color: var(--paper);
+  color: var(--bg);
 }
 .hero-opt[aria-checked='true'] .horixa,
 .hero-opt[aria-checked='true'] .hbest,
 .hero-opt[aria-checked='true'] .hdiff {
-  color: #c9c2b2;
+  color: var(--muted-inv);
 }
 .hero-opt.locked {
   cursor: not-allowed;
 }
 .hero-opt.locked img {
-  filter: brightness(0);
-  opacity: 0.55;
+  filter: brightness(0) invert(0.32);
 }
 @media (hover: hover) and (pointer: fine) {
   .hero-opt:not([aria-checked='true']):not(.locked):hover {
@@ -837,7 +862,7 @@ figcaption {
 }
 .prova[aria-pressed='true'] {
   background: var(--ink);
-  color: var(--paper);
+  color: var(--bg);
 }
 .provas .locked-note {
   color: var(--muted);
@@ -896,10 +921,10 @@ figcaption {
 }
 .hud-stage strong {
   font-family: var(--font-display);
-  font-weight: 500;
+  font-weight: 600;
   font-size: 24px;
   color: var(--ink);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -1035,7 +1060,9 @@ figcaption {
   transform: scale(0.98);
 }
 .ability .an {
-  font-weight: 500;
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.02em;
   display: flex;
   justify-content: space-between;
   gap: 8px;
@@ -1046,8 +1073,10 @@ figcaption {
   color: var(--muted);
 }
 .ability .acd {
+  font-family: var(--font-text);
   font-size: var(--step-small);
   font-weight: 400;
+  letter-spacing: 0.01em;
   color: var(--muted);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -1058,20 +1087,20 @@ figcaption {
 }
 .ability.ready .ad,
 .ability.ready .acd {
-  color: #e3ead8;
+  color: #4a2a0e;
 }
 .ability.ready kbd,
 .ability.targeting kbd {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.14);
   color: inherit;
 }
 .ability.targeting {
   background: var(--ink);
-  color: var(--paper);
+  color: var(--bg);
 }
 .ability.targeting .ad,
 .ability.targeting .acd {
-  color: #c9c2b2;
+  color: var(--muted-inv);
 }
 .wait-btn {
   justify-content: space-between;
@@ -1111,7 +1140,7 @@ figcaption {
   z-index: 5;
   width: 230px;
   background: var(--ink);
-  color: var(--paper);
+  color: var(--bg);
   padding: 10px 12px;
 }
 .inspect {
@@ -1227,7 +1256,7 @@ figcaption {
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.35s ease;
-  background: rgba(27, 26, 23, 0.88);
+  background: rgba(5, 11, 7, 0.9);
   color: var(--night-ink);
   padding: 18px 16px 20px;
 }
@@ -1236,7 +1265,7 @@ figcaption {
 }
 .banner .b1 {
   font-size: var(--step-small);
-  color: #b9b2a2;
+  color: var(--muted);
 }
 .banner .b2 {
   font-family: var(--font-display);
@@ -1253,7 +1282,7 @@ figcaption {
   top: 12px;
   transform: translateX(-50%) translateY(-8px);
   background: var(--ink);
-  color: var(--paper);
+  color: var(--bg);
   padding: 10px 16px;
   max-width: min(92%, 520px);
   text-align: center;
@@ -1269,7 +1298,7 @@ figcaption {
   transform: translateX(-50%) translateY(0);
 }
 .toast kbd {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.12);
   color: inherit;
 }
 
@@ -1277,7 +1306,7 @@ figcaption {
 .overlay {
   position: absolute;
   inset: 0;
-  background: rgba(27, 26, 23, 0.72);
+  background: rgba(3, 7, 4, 0.78);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1289,7 +1318,7 @@ figcaption {
   position: fixed;
 }
 .dialog {
-  background: var(--bg);
+  background: var(--surface);
   color: var(--ink);
   padding: 28px 32px 32px;
   width: min(1000px, 100%);
@@ -1305,7 +1334,7 @@ figcaption {
   }
 }
 .dialog h2 {
-  font-size: clamp(2rem, 1.4rem + 2vw, 2.75rem);
+  font-size: clamp(1.75rem, 1.2rem + 1.6vw, 2.375rem);
   margin-bottom: 8px;
 }
 .dialog.small {
@@ -1392,7 +1421,7 @@ figcaption {
 .boon-card b {
   display: block;
   font-family: var(--font-display);
-  font-weight: 500;
+  font-weight: 600;
   font-size: 22px;
   line-height: 1.15;
   margin-bottom: 4px;
@@ -1442,7 +1471,7 @@ figcaption {
   display: grid;
   place-items: center;
   background: var(--ink);
-  color: var(--paper);
+  color: var(--bg);
 }
 .lesson {
   margin: 20px 0 0;
@@ -1518,7 +1547,7 @@ figcaption {
 }
 .tabs button.active {
   background: var(--ink);
-  color: var(--paper);
+  color: var(--bg);
 }
 .tab-body {
   min-height: 300px;
@@ -1539,8 +1568,7 @@ figcaption {
   margin-bottom: 6px;
 }
 .rec img.locked {
-  filter: brightness(0);
-  opacity: 0.55;
+  filter: brightness(0) invert(0.32);
 }
 .rec .rname {
   font-family: var(--font-display);
@@ -1575,10 +1603,10 @@ figcaption {
 }
 .mark.done {
   background: var(--ink);
-  color: #c9c2b2;
+  color: var(--muted-inv);
 }
 .mark.done b {
-  color: var(--paper);
+  color: var(--bg);
 }
 .bestiary {
   display: grid;
@@ -1601,7 +1629,7 @@ figcaption {
 }
 .beast b {
   font-family: var(--font-display);
-  font-weight: 500;
+  font-weight: 600;
   font-size: 22px;
 }
 .beast .tip {
@@ -1610,8 +1638,7 @@ figcaption {
   font-weight: 500;
 }
 .beast.unknown img {
-  filter: brightness(0);
-  opacity: 0.4;
+  filter: brightness(0) invert(0.28);
 }
 .history {
   width: 100%;
@@ -1802,11 +1829,11 @@ figcaption {
     line-height: 0.9;
   }
   .paths-head span:first-child {
-    background: var(--ink);
+    background: var(--deep);
     padding: 0 20px 14px;
   }
   .paths-head span:last-child {
-    background: var(--paper);
+    background: var(--floor);
     padding: 14px 20px 0;
   }
   .paths-light {
@@ -2037,6 +2064,12 @@ figcaption {
   .actionbar .btn,
   .ability.mini {
     min-height: 48px;
+  }
+  .ability.mini .an {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    font-size: 18px;
   }
 }
 
